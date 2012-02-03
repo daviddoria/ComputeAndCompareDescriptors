@@ -14,7 +14,7 @@ public:
 
   static const std::string DescriptorName;
 
-  typedef pcl::PointCloud<pcl::PointXYZ> InputCloudType;
+  typedef pcl::PointCloud<pcl::PointNormal> InputCloudType;
 
   typedef pcl::VFHSignature308 FeatureType;
   typedef pcl::PointCloud<FeatureType> OutputCloudType;

@@ -74,6 +74,9 @@
 #include "VTKtoPCL.h"
 #include "ComputeNormals.h"
 #include "ComputeClusteredViewpointFeatureHistograms.h"
+#include "ComputeViewpointFeatureHistograms.h"
+#include "ComputePointFeatureHistograms.h"
+#include "ComputeFastPointFeatureHistograms.h"
 
 void ComputeAndCompareDescriptorsWidget::on_actionHelp_activated()
 {
@@ -95,7 +98,7 @@ void ComputeAndCompareDescriptorsWidget::on_actionQuit_activated()
 
 // Constructor
 ComputeAndCompareDescriptorsWidget::ComputeAndCompareDescriptorsWidget() :
-MarkerRadius(.05), PCLCloud(new InputCloudType), PCLCloudWithNormals(new NormalsCloudType)
+MarkerRadius(.05), PCLCloudWithNormals(new NormalsCloudType)
 {
   this->ProgressDialog = new QProgressDialog();
   SharedConstructor();
@@ -154,6 +157,9 @@ void ComputeAndCompareDescriptorsWidget::SharedConstructor()
   
   //cmbDescriptor->addItem("CVFH");
   RegisterDescriptorComputer(ComputeClusteredViewpointFeatureHistograms::DescriptorName);
+  RegisterDescriptorComputer(ComputeViewpointFeatureHistograms::DescriptorName);
+  RegisterDescriptorComputer(ComputePointFeatureHistograms::DescriptorName);
+  RegisterDescriptorComputer(ComputeFastPointFeatureHistograms::DescriptorName);
 }
 
 void ComputeAndCompareDescriptorsWidget::SelectedPointCallback(vtkObject* caller, long unsigned int eventId, void* callData)
@@ -255,10 +261,10 @@ void ComputeAndCompareDescriptorsWidget::LoadPointCloud(const std::string& fileN
 
   std::cout << "Converting to PCL..." << std::endl;
   //VTKtoPCL(this->PointCloud.GetPointer(), this->PCLCloud.get());
-  VTKtoPCL(this->PointCloud, this->PCLCloud.get());
+  VTKtoPCL(this->PointCloud, this->PCLCloudWithNormals.get());
 
   std::cout << "Computing normals..." << std::endl;
-  this->NormalComputer(this->PCLCloud, this->PCLCloudWithNormals);
+  this->NormalComputer(this->PCLCloudWithNormals, this->PCLCloudWithNormals);
 
   CreateIndexMap();
 
@@ -299,17 +305,41 @@ void ComputeAndCompareDescriptorsWidget::CreateIndexMap()
 
 void ComputeAndCompareDescriptorsWidget::ComputeFeatures()
 {
-  ComputeClusteredViewpointFeatureHistograms cvfhComputer;
-  cvfhComputer(this->PCLCloud, this->Mask, this->PointCloud);
+  if(cmbDescriptor->currentText().toStdString() == "CVFH")
+    {
+    ComputeClusteredViewpointFeatureHistograms cvfhComputer;
+    cvfhComputer(this->PCLCloudWithNormals, this->Mask, this->PointCloud);
+    }
+  if(cmbDescriptor->currentText().toStdString() == "VFH")
+    {
+    ComputeViewpointFeatureHistograms vfhComputer;
+    vfhComputer(this->PCLCloudWithNormals, this->Mask, this->PointCloud);
+    }
+  if(cmbDescriptor->currentText().toStdString() == "PFH")
+    {
+    ComputePointFeatureHistograms pfhComputer;
+    pfhComputer(this->PCLCloudWithNormals, this->Mask, this->PointCloud);
+    }
+  if(cmbDescriptor->currentText().toStdString() == "FPFH")
+    {
+    ComputeFastPointFeatureHistograms fpfhComputer;
+    fpfhComputer(this->PCLCloudWithNormals, this->PointCloud);
+    }
+  else
+    {
+    throw std::runtime_error("No known method for computing " + cmbDescriptor->currentText().toStdString() + " descriptors!");
+    }
 }
 
 void ComputeAndCompareDescriptorsWidget::ComputeDifferences()
 {
+  ComputeFeatures();
+
   vtkIdType numberOfPoints = this->PointCloud->GetNumberOfPoints();
-  std::cout << "There are " << numberOfPoints << " points." << std::endl;
+  //std::cout << "There are " << numberOfPoints << " points." << std::endl;
 
   vtkIdType selectedPointId = this->SelectionStyle->SelectedPointId;
-  std::cout << "selectedPointId: " << selectedPointId << std::endl;
+  //std::cout << "selectedPointId: " << selectedPointId << std::endl;
 
   if(selectedPointId < 0 || selectedPointId >= numberOfPoints)
     {
@@ -323,7 +353,7 @@ void ComputeAndCompareDescriptorsWidget::ComputeDifferences()
 
   if(!descriptorArray)
     {
-    throw std::runtime_error("Array not found!"); // The array should always be found because we are selecting it from a list of available arrays!
+    throw std::runtime_error("Array " + nameOfArrayToCompare + " not found!"); // The array should always be found because we are selecting it from a list of available arrays!
     }
 
   std::cout << "There are " << descriptorArray->GetNumberOfComponents() << " components in the descriptor." << std::endl;
@@ -364,7 +394,7 @@ void ComputeAndCompareDescriptorsWidget::ComputeDifferences()
   // I'm not sure why the scalar range of the data set is not the same?
   this->PointCloudMapper->SetUseLookupTableScalarRange(true);
 
-  //this->qvtkWidget->GetRenderWindow()->Render(); // potentially causing threading related crash?
+  //this->qvtkWidget->GetRenderWindow()->Render(); // Can't do this here because we are potentially currently in a different thread from the renderer (if we are using a progress bar + future watcher)
 
 }
 

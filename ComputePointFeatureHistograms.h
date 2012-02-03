@@ -1,5 +1,5 @@
-#ifndef ComputeViewpointFeatureHistograms_h
-#define ComputeViewpointFeatureHistograms_h
+#ifndef ComputePointFeatureHistograms_h
+#define ComputePointFeatureHistograms_h
 
 // VTK
 class vtkPolyData;
@@ -14,13 +14,14 @@ class vtkPolyData;
 // Custom
 #include "ComputeNormals.h"
 
-class ComputeViewpointFeatureHistograms
+class ComputePointFeatureHistograms
 {
 public:
   static const std::string DescriptorName;
   
+  // The input must already have normals
   typedef pcl::PointCloud<pcl::PointNormal> InputCloudType;
-  typedef pcl::PointCloud<pcl::VFHSignature308> OutputCloudType;
+  typedef pcl::PointCloud<pcl::PFHSignature125> OutputCloudType;
 
   typedef itk::Image<bool, 2> MaskImageType;
 

@@ -7,15 +7,17 @@
 
 class vtkPolyData;
 
-namespace ComputeFastPointFeatureHistograms
+class ComputeFastPointFeatureHistograms
 {
+public:
+  static const std::string DescriptorName;
+  
+  typedef pcl::PointCloud<pcl::PointNormal> InputCloud;
+  typedef pcl::PointCloud<pcl::FPFHSignature33> OutputCloud;
 
-typedef pcl::PointCloud<pcl::PointXYZ> InputCloud;
-typedef pcl::PointCloud<pcl::FPFHSignature33> OutputCloud;
+  void operator()(InputCloud::Ptr input, vtkPolyData* const polyData);
+  void AddToPolyData(OutputCloud::Ptr outputCloud, vtkPolyData* const polyData);
 
-void ComputeFastPointFeatureHistograms(InputCloud::Ptr input, OutputCloud::Ptr output);
-void AddToPolyData(OutputCloud::Ptr outputCloud, vtkPolyData* const polyData);
-
-}
+};
 
 #endif

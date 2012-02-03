@@ -1,3 +1,5 @@
+#include "ComputePointFeatureHistograms.h"
+
 // STL
 #include <iostream>
 #include <vector>
@@ -6,6 +8,7 @@
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
 #include <pcl/features/pfh.h>
+#include <pcl/features/impl/pfh.hpp>
 #include <pcl/features/normal_3d.h>
 
 // VTK
@@ -16,96 +19,27 @@
 #include <vtkXMLPolyDataReader.h>
 #include <vtkXMLPolyDataWriter.h>
 
-typedef pcl::PointCloud<pcl::PointXYZ> InputCloud;
-typedef pcl::PointCloud<pcl::PFHSignature125> OutputCloud;
+const std::string ComputePointFeatureHistograms::DescriptorName = "PFH";
 
-static void ComputePointFeatureHistograms(pcl::PointIndices::Ptr indices, InputCloud::Ptr input, OutputCloud::Ptr output);
-static void AddToPolyData(OutputCloud::Ptr outputCloud, pcl::PointIndices::Ptr indices, vtkPolyData* const polyData);
-
-int main (int argc, char** argv)
+// The input must already have normals.
+void ComputePointFeatureHistograms::operator()(InputCloudType::Ptr input, MaskImageType* mask, vtkPolyData* const polyData)
 {
-  if(argc < 4)
-    {
-    throw std::runtime_error("Required arguments: PCLFileName.pcd VTKFileName.vtp OutputFileName.vtp");
-    }
-
-  std::string pclFileName = argv[1];
-  std::string vtkFileName = argv[2];
-  std::string outputFileName = argv[3];
-  std::cout << "Reading " << pclFileName << " and " << vtkFileName << std::endl;
-
-  InputCloud::Ptr cloud (new InputCloud);
-
-  if (pcl::io::loadPCDFile<InputCloud::PointType> (pclFileName, *cloud) == -1) //* load the file
-  {
-    PCL_ERROR ("Couldn't read file");
-    return (-1);
-  }
-
-  std::cout << "Loaded " << cloud->points.size() << " points." << std::endl;
-
-  // Add the descriptors to the VTK data
-  std::cout << "Adding features to vtp file..." << std::endl;
-  vtkSmartPointer<vtkXMLPolyDataReader> reader = vtkSmartPointer<vtkXMLPolyDataReader>::New();
-  reader->SetFileName(vtkFileName.c_str());
-  reader->Update();
-
-  // Only compute the descriptor on a subset of the points
-  pcl::PointIndices::Ptr indices(new pcl::PointIndices);
-  //for(unsigned int pointId = 0; pointId < 1000; ++pointId)
-  for(unsigned int pointId = 0; pointId < cloud->points.size(); ++pointId)
-  {
-    indices->indices.push_back(pointId);
-  }
-
-  OutputCloud::Ptr outputCloud (new OutputCloud);
-  ComputePointFeatureHistograms(indices, cloud, outputCloud);
-
-  vtkSmartPointer<vtkPolyData> polyData = vtkSmartPointer<vtkPolyData>::New();
-  polyData->DeepCopy(reader->GetOutput());
-  AddToPolyData(outputCloud, indices, polyData);
-
-  vtkSmartPointer<vtkXMLPolyDataWriter> writer = vtkSmartPointer<vtkXMLPolyDataWriter>::New();
-  writer->SetFileName(outputFileName.c_str());
-  writer->SetInputConnection(polyData->GetProducerPort());
-  writer->Write();
-
-  return EXIT_SUCCESS;
-}
-
-void ComputePointFeatureHistograms(pcl::PointIndices::Ptr indices, InputCloud::Ptr input, OutputCloud::Ptr output)
-{
-  // Compute the normals
-  pcl::NormalEstimation<InputCloud::PointType, pcl::Normal> normalEstimation;
-  normalEstimation.setInputCloud (input);
-
-  pcl::search::KdTree<InputCloud::PointType>::Ptr tree (new pcl::search::KdTree<InputCloud::PointType>);
-  normalEstimation.setSearchMethod (tree);
-
-  pcl::PointCloud<pcl::Normal>::Ptr cloudWithNormals (new pcl::PointCloud<pcl::Normal>);
-
-  normalEstimation.setRadiusSearch (0.05);
-
-  std::cout << "Computing normals..." << std::endl;
-  normalEstimation.compute (*cloudWithNormals);
+  pcl::search::KdTree<InputCloudType::PointType>::Ptr tree (new pcl::search::KdTree<InputCloudType::PointType>);
 
   // Setup the feature computation
-  
-  pcl::PFHEstimation<InputCloud::PointType, pcl::Normal, OutputCloud::PointType> pfhEstimation;
+  pcl::PFHEstimation<InputCloudType::PointType, InputCloudType::PointType, OutputCloudType::PointType> pfhEstimation;
   // Provide the original point cloud (without normals)
   pfhEstimation.setInputCloud (input);
   // Provide the point cloud with normals
-  pfhEstimation.setInputNormals(cloudWithNormals);
+  pfhEstimation.setInputNormals(input);
 
   // pfhEstimation.setInputWithNormals(cloud, cloudWithNormals); PFHEstimation does not have this function
   // Use the same KdTree from the normal estimation
   pfhEstimation.setSearchMethod (tree);
 
-  OutputCloud::Ptr pfhFeatures(new OutputCloud);
+  OutputCloudType::Ptr pfhFeatures(new OutputCloudType);
 
   pfhEstimation.setRadiusSearch (0.1);
-
-  pfhEstimation.setIndices(indices);
 
   // Actually compute the features
   std::cout << "Computing features..." << std::endl;
@@ -115,7 +49,7 @@ void ComputePointFeatureHistograms(pcl::PointIndices::Ptr indices, InputCloud::P
   
 }
 
-void AddToPolyData(OutputCloud::Ptr outputCloud, pcl::PointIndices::Ptr indices, vtkPolyData* const polyData)
+void ComputePointFeatureHistograms::AddToPolyData(OutputCloudType::Ptr outputCloud, vtkPolyData* const polyData)
 {
   vtkSmartPointer<vtkFloatArray> descriptors = vtkSmartPointer<vtkFloatArray>::New();
   descriptors->SetName("PointFeatureHistogram");
@@ -133,7 +67,7 @@ void AddToPolyData(OutputCloud::Ptr outputCloud, pcl::PointIndices::Ptr indices,
   std::cout << "Attaching features to VTK data..." << std::endl;
   for(size_t pointId = 0; pointId < outputCloud->points.size(); ++pointId)
     {
-    OutputCloud::PointType descriptor = outputCloud->points[indices->indices[pointId]];
+    OutputCloudType::PointType descriptor = outputCloud->points[pointId];
     descriptors->SetTupleValue(pointId, descriptor.histogram);
     }
 

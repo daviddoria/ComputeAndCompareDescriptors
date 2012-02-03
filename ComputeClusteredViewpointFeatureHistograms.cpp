@@ -35,10 +35,6 @@ void ComputeClusteredViewpointFeatureHistograms::operator()(InputCloudType::Ptr 
   OutputCloudType::Ptr cvfhFeatures(new OutputCloudType);
   cvfhFeatures->resize(polyData->GetNumberOfPoints());
 
-  ComputeNormals::OutputCloudType::Ptr cloudWithNormals (new ComputeNormals::OutputCloudType);
-  ComputeNormals normals;
-  normals(input, cloudWithNormals);
-
   std::cout << "Creating index map..." << std::endl;
   Helpers::CoordinateMapType coordinateMap = Helpers::ComputeMap(polyData);
 
@@ -54,6 +50,10 @@ void ComputeClusteredViewpointFeatureHistograms::operator()(InputCloudType::Ptr 
     {
     emptyPoint.histogram[component] = 0.0f;
     }
+
+  // Create a tree
+  typedef pcl::search::KdTree<InputCloudType::PointType> TreeType;
+  TreeType::Ptr tree = typename TreeType::Ptr(new TreeType);
 
   while(!imageIterator.IsAtEnd())
     {
@@ -100,11 +100,11 @@ void ComputeClusteredViewpointFeatureHistograms::operator()(InputCloudType::Ptr 
     cvfhEstimation.setInputCloud (input);
 
     // Provide the point cloud with normals
-    cvfhEstimation.setInputNormals(cloudWithNormals);
+    cvfhEstimation.setInputNormals(input);
 
     // cvfhEstimation.setInputWithNormals(cloud, cloudWithNormals); VFHEstimation does not have this function
     // Use the same KdTree from the normal estimation
-    cvfhEstimation.setSearchMethod (normals.Tree);
+    cvfhEstimation.setSearchMethod(tree);
 
     //cvfhEstimation.setRadiusSearch (0.2);
 
@@ -125,7 +125,7 @@ void ComputeClusteredViewpointFeatureHistograms::operator()(InputCloudType::Ptr 
 void ComputeClusteredViewpointFeatureHistograms::AddToPolyData(OutputCloudType::Ptr outputCloud, vtkPolyData* const polyData)
 {
   vtkSmartPointer<vtkFloatArray> descriptors = vtkSmartPointer<vtkFloatArray>::New();
-  descriptors->SetName("CVFH");
+  descriptors->SetName(DescriptorName.c_str());
   descriptors->SetNumberOfComponents(308);
   descriptors->SetNumberOfTuples(polyData->GetNumberOfPoints());
 

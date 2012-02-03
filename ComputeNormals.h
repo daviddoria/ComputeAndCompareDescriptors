@@ -3,20 +3,25 @@
 
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
+#include <pcl/point_cloud.h>
 #include <pcl/features/normal_3d.h>
 
 class vtkPolyData;
 
+template <typename TInput, typename TOutput>
 struct ComputeNormals
 {
-  typedef pcl::PointCloud<pcl::PointXYZ> InputCloudType;
-  typedef pcl::PointCloud<pcl::PointNormal> OutputCloudType;
+  typedef TInput InputPointType;
+  typedef TOutput OutputPointType;
 
-  typedef pcl::search::KdTree<pcl::PointXYZ> TreeType;
-  TreeType::Ptr Tree;
+  typedef pcl::search::KdTree<InputPointType> TreeType;
+  typename TreeType::Ptr Tree;
 
-  void operator()(InputCloudType::Ptr input, OutputCloudType::Ptr output);
-  static void AddNormalsToPolyData(OutputCloudType::Ptr cloudWithNormals, vtkPolyData* const polyData);
+  void operator()(typename pcl::PointCloud<TInput>::Ptr input, typename pcl::PointCloud<TOutput>::Ptr output);
+
+  // static void AddNormalsToPolyData(OutputCloudType::Ptr cloudWithNormals, vtkPolyData* const polyData);
 };
+
+#include "ComputeNormals.hpp"
 
 #endif

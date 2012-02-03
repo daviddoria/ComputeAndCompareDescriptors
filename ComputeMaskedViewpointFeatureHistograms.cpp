@@ -38,9 +38,9 @@ void ComputeMaskedViewpointFeatureHistograms::operator()(InputCloudType::Ptr inp
   OutputCloudType::Ptr output(new OutputCloudType);
   output->resize(polyData->GetNumberOfPoints());
 
-  ComputeNormals::OutputCloudType::Ptr cloudWithNormals (new ComputeNormals::OutputCloudType);
-  ComputeNormals normals;
-  normals(input, cloudWithNormals);
+  // Create a tree
+  typedef pcl::search::KdTree<InputCloudType::PointType> TreeType;
+  TreeType::Ptr tree = typename TreeType::Ptr(new TreeType);
 
   std::cout << "Creating index map..." << std::endl;
   Helpers::CoordinateMapType coordinateMap = Helpers::ComputeMap(polyData);
@@ -95,18 +95,6 @@ void ComputeMaskedViewpointFeatureHistograms::operator()(InputCloudType::Ptr inp
       }
     //std::cout << "There are " << pointIds.size() << " points in this patch." << std::endl;
 
-//     {
-//       itk::Index<2> testIndex = {{227, 93}};
-//       if(testIndex == imageIterator.GetIndex())
-//         {
-//         std::cout << "There are " << pointIds.size() << " points in this patch." << std::endl;
-//         for(unsigned int i = 0; i < pointIds.size(); ++i)
-//           {
-//           std::cout << "Id: " << i << " : " << pointIds[i] << input->points[pointIds[i]] << std::endl;
-//           }
-//         }
-//     }
-
     // Setup the feature computation
     pcl::VFHEstimation<InputCloudType::PointType, pcl::PointNormal, OutputCloudType::PointType> vfhEstimation;
 
@@ -117,11 +105,11 @@ void ComputeMaskedViewpointFeatureHistograms::operator()(InputCloudType::Ptr inp
     vfhEstimation.setInputCloud (input);
 
     // Provide the point cloud with normals
-    vfhEstimation.setInputNormals(cloudWithNormals);
+    vfhEstimation.setInputNormals(input);
 
     // vfhEstimation.setInputWithNormals(cloud, cloudWithNormals); VFHEstimation does not have this function
     // Use the same KdTree from the normal estimation
-    vfhEstimation.setSearchMethod (normals.Tree);
+    vfhEstimation.setSearchMethod(tree);
 
     //vfhEstimation.setRadiusSearch (0.2);
 

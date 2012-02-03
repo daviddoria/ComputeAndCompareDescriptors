@@ -32,6 +32,8 @@ ComputeNormals.cpp
 ComputeClusteredViewpointFeatureHistograms.cpp
 ComputeViewpointFeatureHistograms.cpp
 ComputeMaskedViewpointFeatureHistograms.cpp
+ComputePointFeatureHistograms.cpp
+ComputeFastPointFeatureHistograms.cpp
 
 ComputeAndCompareDescriptorsWidget.cpp
 

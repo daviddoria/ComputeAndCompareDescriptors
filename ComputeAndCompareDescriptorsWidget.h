@@ -52,14 +52,17 @@ class vtkPolyData;
 class vtkPolyDataMapper;
 class vtkRenderer;
 
+/* 
+ * This class will compute a descriptor at each point (if it isn't already computed, indicated by the existance of
+ * an array with the same name), and then compute the differences of the descriptor at the currently selected point
+ * with the other points, and color the result by this difference.
+ */
 class ComputeAndCompareDescriptorsWidget : public QMainWindow, public Ui::ComputeAndCompareDescriptorsWidget
 {
   Q_OBJECT
 public:
 
-  enum DescriptorEnum {CVFH, VFH, MASKED_VFH, SPINIMAGES, SHAPECONTEXTS, FPFH, PFH};
-
-  typedef pcl::PointCloud<pcl::PointXYZ> InputCloudType;
+  // enum DescriptorEnum {CVFH, VFH, MASKED_VFH, SPINIMAGES, SHAPECONTEXTS, FPFH, PFH};
 
   typedef pcl::PointCloud<pcl::PointNormal> NormalsCloudType;
 
@@ -122,12 +125,11 @@ private:
 
   void SelectedPointCallback(vtkObject* caller, long unsigned int eventId, void* callData);
 
-  InputCloudType::Ptr PCLCloud;
   NormalsCloudType::Ptr PCLCloudWithNormals;
 
   MaskImageType::Pointer Mask;
 
-  ComputeNormals NormalComputer;
+  ComputeNormals<NormalsCloudType::PointType, NormalsCloudType::PointType> NormalComputer;
 };
 
 #include "ComputeAndCompareDescriptorsWidget.hpp"

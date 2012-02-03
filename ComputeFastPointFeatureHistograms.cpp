@@ -8,27 +8,23 @@
 
 #include <pcl/features/fpfh.h>
 
-namespace ComputeFastPointFeatureHistograms
-{
+const std::string ComputeFastPointFeatureHistograms::DescriptorName = "FPFH";
 
-void ComputeFastPointFeatureHistograms(InputCloud::Ptr input, OutputCloud::Ptr output)
+void ComputeFastPointFeatureHistograms::operator()(InputCloud::Ptr input, vtkPolyData* const polyData)
 {
-//   pcl::search::KdTree<pcl::PointXYZ>::Ptr tree (new pcl::search::KdTree<pcl::PointXYZ>);
-//   normalEstimation.setSearchMethod (tree);
-
-  ComputeNormals::OutputCloud::Ptr cloudWithNormals (new ComputeNormals::OutputCloud);
-  ComputeNormals normals(input, cloudWithNormals);
-  
   // Setup the feature computation
-  pcl::FPFHEstimation<pcl::PointXYZ, pcl::Normal, pcl::FPFHSignature33> fpfhEstimation;
+  pcl::FPFHEstimation<pcl::PointNormal, pcl::PointNormal, pcl::FPFHSignature33> fpfhEstimation;
   // Provide the original point cloud (without normals)
   fpfhEstimation.setInputCloud (input);
   // Provide the point cloud with normals
-  fpfhEstimation.setInputNormals(cloudWithNormals);
+  fpfhEstimation.setInputNormals(input);
 
+  typedef pcl::search::KdTree<InputCloud::PointType> TreeType;
+  TreeType::Ptr tree = typename TreeType::Ptr(new TreeType);
+  
   // fpfhEstimation.setInputWithNormals(cloud, cloudWithNormals); PFHEstimation does not have this function
   // Use the same KdTree from the normal estimation
-  fpfhEstimation.setSearchMethod (normals.Tree);
+  fpfhEstimation.setSearchMethod(tree);
 
   OutputCloud::Ptr pfhFeatures(new OutputCloud);
 
@@ -44,7 +40,7 @@ void ComputeFastPointFeatureHistograms(InputCloud::Ptr input, OutputCloud::Ptr o
   std::cout << descriptor << std::endl;
 }
 
-void AddToPolyData(OutputCloud::Ptr outputCloud, vtkPolyData* const polyData)
+void ComputeFastPointFeatureHistograms::AddToPolyData(OutputCloud::Ptr outputCloud, vtkPolyData* const polyData)
 {
   vtkSmartPointer<vtkFloatArray> descriptors = vtkSmartPointer<vtkFloatArray>::New();
   descriptors->SetName("Normals");
@@ -59,6 +55,4 @@ void AddToPolyData(OutputCloud::Ptr outputCloud, vtkPolyData* const polyData)
     }
 
   polyData->GetPointData()->AddArray(descriptors);
-}
-
 }

@@ -11,7 +11,7 @@ class vtkPolyData;
 class ComputeMaskedViewpointFeatureHistograms
 {
 public:
-  typedef pcl::PointCloud<pcl::PointXYZ> InputCloudType;
+  typedef pcl::PointCloud<pcl::PointNormal> InputCloudType;
   typedef pcl::PointCloud<pcl::VFHSignature308> OutputCloudType;
 
   typedef itk::Image<bool, 2> MaskImageType;

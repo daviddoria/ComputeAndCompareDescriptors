@@ -20,18 +20,14 @@
 #include "ComputeNormals.h"
 #include "Helpers.h"
 
+const std::string ComputeViewpointFeatureHistograms::DescriptorName = "VFH";
+
 // void ComputeViewpointFeatureHistogram::operator()(InputCloudType::Ptr input, MaskImageType* mask, itk::Index<2>& index,
 //                                                   OutputCloudType::Ptr output)
 // {
 //   // The 'output' of this function only has 1 point (as per the standard operation of the VFH filter).
 //   // The inner loop of ComputeViewpointFeatureHistograms() should be broken out here
 // }
-
-void ComputeViewpointFeatureHistograms::operator()(ComputeNormals::OutputCloudType::Ptr input, MaskImageType* mask,
-                                                   vtkPolyData* const polyData)
-{
-
-}
 
 void ComputeViewpointFeatureHistograms::operator()(InputCloudType::Ptr input, MaskImageType* mask, vtkPolyData* const polyData)
 {
@@ -42,10 +38,6 @@ void ComputeViewpointFeatureHistograms::operator()(InputCloudType::Ptr input, Ma
   // Initalize 'output'
   OutputCloudType::Ptr output(new OutputCloudType);
   output->resize(polyData->GetNumberOfPoints());
-
-  ComputeNormals::OutputCloudType::Ptr cloudWithNormals (new ComputeNormals::OutputCloudType);
-  ComputeNormals normals;
-  normals(input, cloudWithNormals);
 
   std::cout << "Creating index map..." << std::endl;
   Helpers::CoordinateMapType coordinateMap = Helpers::ComputeMap(polyData);
@@ -62,6 +54,10 @@ void ComputeViewpointFeatureHistograms::operator()(InputCloudType::Ptr input, Ma
     {
     emptyPoint.histogram[component] = 0.0f;
     }
+
+  // Create a tree
+  typedef pcl::search::KdTree<InputCloudType::PointType> TreeType;
+  TreeType::Ptr tree = typename TreeType::Ptr(new TreeType);
 
   //std::fstream fout("/home/doriad/temp/output.txt");
   while(!imageIterator.IsAtEnd())
@@ -110,11 +106,11 @@ void ComputeViewpointFeatureHistograms::operator()(InputCloudType::Ptr input, Ma
     vfhEstimation.setInputCloud (input);
 
     // Provide the point cloud with normals
-    vfhEstimation.setInputNormals(cloudWithNormals);
+    vfhEstimation.setInputNormals(input);
 
     // vfhEstimation.setInputWithNormals(cloud, cloudWithNormals); VFHEstimation does not have this function
     // Use the same KdTree from the normal estimation
-    vfhEstimation.setSearchMethod (normals.Tree);
+    vfhEstimation.setSearchMethod (tree);
 
     //vfhEstimation.setRadiusSearch (0.2);
 
