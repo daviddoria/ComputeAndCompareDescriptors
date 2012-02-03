@@ -24,7 +24,6 @@
 #include "itkImageFileReader.h"
 #include "itkImageFileWriter.h"
 #include "itkRegionOfInterestImageFilter.h"
-//#include "itkVector.h"
 
 // Qt
 #include <QFileDialog>
@@ -65,9 +64,6 @@
 #include <vtkXMLPolyDataReader.h>
 #include <vtkXMLPolyDataWriter.h>
 
-// PCL
-#include <pcl/features/vfh.h>
-
 // Boost
 #include <boost/make_shared.hpp>
 
@@ -77,6 +73,7 @@
 #include "PointSelectionStyle3D.h"
 #include "VTKtoPCL.h"
 #include "ComputeNormals.h"
+#include "ComputeClusteredViewpointFeatureHistograms.h"
 
 void ComputeAndCompareDescriptorsWidget::on_actionHelp_activated()
 {
@@ -154,6 +151,9 @@ void ComputeAndCompareDescriptorsWidget::SharedConstructor()
 
   actionOpenPointCloud->setIcon(openIcon);
   this->toolBar_left->addAction(actionOpenPointCloud);
+  
+  //cmbDescriptor->addItem("CVFH");
+  RegisterDescriptorComputer(ComputeClusteredViewpointFeatureHistograms::DescriptorName);
 }
 
 void ComputeAndCompareDescriptorsWidget::SelectedPointCallback(vtkObject* caller, long unsigned int eventId, void* callData)
@@ -180,6 +180,11 @@ void ComputeAndCompareDescriptorsWidget::LoadMask(const std::string& fileName)
   Helpers::DeepCopy(reader->GetOutput(), this->Mask.GetPointer());
 }
 
+void ComputeAndCompareDescriptorsWidget::RegisterDescriptorComputer(const std::string& descriptorName)
+{
+  this->cmbDescriptor->addItem(descriptorName.c_str());
+}
+
 void ComputeAndCompareDescriptorsWidget::LoadPointCloud(const std::string& fileName)
 {
   vtkSmartPointer<vtkXMLPolyDataReader> reader = vtkSmartPointer<vtkXMLPolyDataReader>::New();
@@ -188,8 +193,9 @@ void ComputeAndCompareDescriptorsWidget::LoadPointCloud(const std::string& fileN
 
   // Keep all points
   //this->PointCloud->DeepCopy(reader->GetOutput());
-  
+
   // Keep only unmasked points
+  std::cout << "Displaying only unmasked points..." << std::endl;
   vtkSmartPointer<vtkIdTypeArray> idsToKeep = vtkSmartPointer<vtkIdTypeArray>::New();
   idsToKeep->SetNumberOfComponents(1);
 
@@ -216,10 +222,10 @@ void ComputeAndCompareDescriptorsWidget::LoadPointCloud(const std::string& fileN
   selectionNode->SetFieldType(vtkSelectionNode::POINT);
   selectionNode->SetContentType(vtkSelectionNode::INDICES);
   selectionNode->SetSelectionList(idsToKeep);
- 
+
   vtkSmartPointer<vtkSelection> selection = vtkSmartPointer<vtkSelection>::New();
   selection->AddNode(selectionNode);
- 
+
   vtkSmartPointer<vtkExtractSelectedIds> extractSelectedIds = vtkSmartPointer<vtkExtractSelectedIds>::New();
   extractSelectedIds->SetInputConnection(0, reader->GetOutputPort());
   extractSelectedIds->SetInput(1, selection);
@@ -258,7 +264,7 @@ void ComputeAndCompareDescriptorsWidget::LoadPointCloud(const std::string& fileN
 
 }
 
-void ComputeAndCompareDescriptorsWidget::on_btnCompute_clicked()
+void ComputeAndCompareDescriptorsWidget::on_btnCompare_clicked()
 {
   // Start the computation.
   QFuture<void> future = QtConcurrent::run(this, &ComputeAndCompareDescriptorsWidget::ComputeDifferences);
@@ -289,163 +295,16 @@ void ComputeAndCompareDescriptorsWidget::CreateIndexMap()
     pixelIndex[1] = pixelIndexArray[1];
     this->CoordinateMap[pixelIndex] = pointId;
     }
-
 }
 
 void ComputeAndCompareDescriptorsWidget::ComputeFeatures()
 {
-  // Only compute the descriptor on a subset of the points
-  // Input requirements: 'polyData' must have a vtkIntArray called "OriginalPixel" that has 2-tuples indicating which pixel in the depth image the point corresponds to
-
-  std::cout << "There are " << this->PointCloud->GetNumberOfPoints() << " vtp points." << std::endl;
-
-  // Initalize 'output'
-  //OutputCloud::Ptr featureCloud = boost::make_shared<OutputCloud>(*(new OutputCloud)); // This works, but maybe a bad idea?
-  OutputCloudType::Ptr featureCloud(new OutputCloudType);
-  featureCloud->resize(this->PointCloud->GetNumberOfPoints());
-
-  unsigned int patch_half_width = 10;
-
-  vtkIntArray* indexArray = vtkIntArray::SafeDownCast(this->PointCloud->GetPointData()->GetArray("OriginalPixel"));
-  if(!indexArray)
-    {
-    throw std::runtime_error("OriginalPixel array must be available to ComputeFeatures()!");
-    }
-
-  vtkIdType selectedPointId = this->SelectionStyle->SelectedPointId;
-  int selectedPixelArray[2];
-  indexArray->GetTupleValue(selectedPointId, selectedPixelArray);
-  itk::Index<2> selectedPixel = {{selectedPixelArray[0], selectedPixelArray[1]}};
-  itk::ImageRegion<2> selectedRegion = Helpers::GetRegionInRadiusAroundPixel(selectedPixel, patch_half_width);
-
-  // Create the list of valid offsets
-  std::vector<itk::Offset<2> > validOffsets;
-  itk::ImageRegionConstIteratorWithIndex<MaskImageType> patchIterator(this->Mask, selectedRegion);
-  while(!patchIterator.IsAtEnd())
-    {
-    if(!patchIterator.Get())
-      {
-      validOffsets.push_back(patchIterator.GetIndex() - selectedRegion.GetIndex());
-      }
-    ++patchIterator;
-    }
-
-  std::cout << "Computing descriptors..." << std::endl;
-  itk::ImageRegion<2> fullRegion = this->Mask->GetLargestPossibleRegion();
-  itk::ImageRegionConstIteratorWithIndex<MaskImageType> imageIterator(this->Mask, fullRegion);
-  std::cout << "Full region: " << fullRegion << std::endl;
-
-  OutputCloudType::PointType emptyPoint;
-  for(unsigned int component = 0; component < 308; ++component)
-    {
-    emptyPoint.histogram[component] = 0.0f;
-    }
-
-  //std::fstream fout("/home/doriad/temp/output.txt");
-  unsigned int numberOfPointsProcessed = 0;
-  while(!imageIterator.IsAtEnd())
-    {
-    numberOfPointsProcessed++;
-    if(numberOfPointsProcessed % 1000 == 0)
-      {
-      std::cout << "processed " << numberOfPointsProcessed << " points." << std::endl;
-      }
-    //std::cout << "Computing descriptor for pixel " << imageIterator.GetIndex() << std::endl;
-    //fout << "Computing descriptor for pixel " << imageIterator.GetIndex() << std::endl;
-    itk::ImageRegion<2> patchRegion = Helpers::GetRegionInRadiusAroundPixel(imageIterator.GetIndex(), patch_half_width);
-    //std::cout << "patchRegion: " << patchRegion << std::endl;
-    // Skip regions that are not entirely inside the image.
-    if(!fullRegion.IsInside(patchRegion))
-      {
-      ++imageIterator;
-      continue;
-      }
-
-    // Get a list of the pointIds in the region
-    //std::vector<unsigned int> pointIds;
-    std::vector<int> pointIds;
-    // We can only add pointIds if the point corresponding to the pixel actually exists!
-    for(unsigned int offsetId = 0; offsetId < validOffsets.size(); ++offsetId)
-    {
-      itk::Index<2> pixel = patchRegion.GetIndex() + validOffsets[offsetId];
-      CoordinateMapType::iterator iter = this->CoordinateMap.find(pixel);
-      if(iter != this->CoordinateMap.end())
-        {
-        // output the value that "testone" maps to
-        //std::cout << "Found!" << std::endl;
-        pointIds.push_back(iter->second);
-        }
-      else
-        {
-        //std::cout << "Not found!" << std::endl;
-        }
-      //pointIds.push_back(coordinateMap[pixel]);
-    }
-
-    if(pointIds.size() < 2)
-      {
-      unsigned int currentPointId = this->CoordinateMap[imageIterator.GetIndex()];
-
-      featureCloud->points[currentPointId] = emptyPoint;
-      ++imageIterator;
-      continue;
-      }
-    //std::cout << "There are " << pointIds.size() << " points in this patch." << std::endl;
-
-    // Setup the feature computation
-    pcl::VFHEstimation<InputCloudType::PointType, pcl::Normal, OutputCloudType::PointType> vfhEstimation;
-
-    //vfhEstimation.setIndices(&pointIds);
-    vfhEstimation.setIndices(boost::make_shared<std::vector<int> >(pointIds));
-
-    // Provide the original point cloud (without normals)
-    vfhEstimation.setInputCloud (this->PCLCloud);
-
-    // Provide the point cloud with normals
-    vfhEstimation.setInputNormals(this->PCLCloudWithNormals);
-
-    // vfhEstimation.setInputWithNormals(cloud, cloudWithNormals); VFHEstimation does not have this function
-    // Use the same KdTree from the normal estimation
-    vfhEstimation.setSearchMethod (this->NormalComputer.Tree);
-
-    //vfhEstimation.setRadiusSearch (0.2);
-
-    // Actually compute the VFH for this subset of points
-    OutputCloudType::Ptr vfhFeature(new OutputCloudType);
-    vfhEstimation.compute (*vfhFeature);
-
-    unsigned int currentPointId = this->CoordinateMap[imageIterator.GetIndex()];
-
-    featureCloud->points[currentPointId] = vfhFeature->points[0];
-
-    ++imageIterator;
-    }
-
-  vtkSmartPointer<vtkFloatArray> descriptors = vtkSmartPointer<vtkFloatArray>::New();
-  descriptors->SetName("Descriptors");
-  descriptors->SetNumberOfComponents(308);
-  descriptors->SetNumberOfTuples(this->PointCloud->GetNumberOfPoints());
-
-//   // Zero all of the descriptors, we may not have one to assign for every point.
-//   std::vector<float> zeroVector(308, 0);
-// 
-//   for(size_t pointId = 0; pointId < outputCloud->points.size(); ++pointId)
-//     {
-//     descriptors->SetTupleValue(pointId, zeroVector.data());
-//     }
-
-  for(vtkIdType pointId = 0; pointId < this->PointCloud->GetNumberOfPoints(); ++pointId)
-    {
-    descriptors->SetTupleValue(pointId, featureCloud->points[pointId].histogram);
-    }
-
-  this->PointCloud->GetPointData()->AddArray(descriptors);
+  ComputeClusteredViewpointFeatureHistograms cvfhComputer;
+  cvfhComputer(this->PCLCloud, this->Mask, this->PointCloud);
 }
 
 void ComputeAndCompareDescriptorsWidget::ComputeDifferences()
 {
-  ComputeFeatures();
-
   vtkIdType numberOfPoints = this->PointCloud->GetNumberOfPoints();
   std::cout << "There are " << numberOfPoints << " points." << std::endl;
 
@@ -458,7 +317,7 @@ void ComputeAndCompareDescriptorsWidget::ComputeDifferences()
     return;
     }
 
-  std::string nameOfArrayToCompare = "Descriptors";
+  std::string nameOfArrayToCompare = cmbDescriptor->currentText().toStdString();
 
   vtkDataArray* descriptorArray = this->PointCloud->GetPointData()->GetArray(nameOfArrayToCompare.c_str());
 

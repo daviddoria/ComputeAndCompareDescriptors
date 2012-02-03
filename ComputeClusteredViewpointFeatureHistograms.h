@@ -12,6 +12,8 @@ class ComputeClusteredViewpointFeatureHistograms
 {
 public:
 
+  static const std::string DescriptorName;
+
   typedef pcl::PointCloud<pcl::PointXYZ> InputCloudType;
 
   typedef pcl::VFHSignature308 FeatureType;

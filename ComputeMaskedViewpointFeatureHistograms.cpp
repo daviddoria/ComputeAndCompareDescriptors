@@ -108,7 +108,7 @@ void ComputeMaskedViewpointFeatureHistograms::operator()(InputCloudType::Ptr inp
 //     }
 
     // Setup the feature computation
-    pcl::VFHEstimation<InputCloudType::PointType, pcl::Normal, OutputCloudType::PointType> vfhEstimation;
+    pcl::VFHEstimation<InputCloudType::PointType, pcl::PointNormal, OutputCloudType::PointType> vfhEstimation;
 
     //vfhEstimation.setIndices(&pointIds);
     vfhEstimation.setIndices(boost::make_shared<std::vector<int> >(pointIds));

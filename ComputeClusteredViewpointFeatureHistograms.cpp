@@ -26,6 +26,8 @@
 #include "Helpers.h"
 #include "ComputeNormals.h"
 
+const std::string ComputeClusteredViewpointFeatureHistograms::DescriptorName = "CVFH";
+
 void ComputeClusteredViewpointFeatureHistograms::operator()(InputCloudType::Ptr input,
                                                             MaskImageType* mask, vtkPolyData* const polyData)
 {
@@ -89,7 +91,7 @@ void ComputeClusteredViewpointFeatureHistograms::operator()(InputCloudType::Ptr 
     //std::cout << "There are " << pointIds.size() << " points in this patch." << std::endl;
 
     // Setup the feature computation
-    pcl::CVFHEstimation<InputCloudType::PointType, pcl::Normal, OutputCloudType::PointType> cvfhEstimation;
+    pcl::CVFHEstimation<InputCloudType::PointType, pcl::PointNormal, OutputCloudType::PointType> cvfhEstimation;
 
     //cvfhEstimation.setIndices(&pointIds);
     cvfhEstimation.setIndices(boost::make_shared<std::vector<int> >(pointIds));
@@ -123,7 +125,7 @@ void ComputeClusteredViewpointFeatureHistograms::operator()(InputCloudType::Ptr 
 void ComputeClusteredViewpointFeatureHistograms::AddToPolyData(OutputCloudType::Ptr outputCloud, vtkPolyData* const polyData)
 {
   vtkSmartPointer<vtkFloatArray> descriptors = vtkSmartPointer<vtkFloatArray>::New();
-  descriptors->SetName("ViewpointFeatureHistograms");
+  descriptors->SetName("CVFH");
   descriptors->SetNumberOfComponents(308);
   descriptors->SetNumberOfTuples(polyData->GetNumberOfPoints());
 

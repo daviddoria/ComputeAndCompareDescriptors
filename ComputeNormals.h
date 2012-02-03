@@ -10,7 +10,7 @@ class vtkPolyData;
 struct ComputeNormals
 {
   typedef pcl::PointCloud<pcl::PointXYZ> InputCloudType;
-  typedef pcl::PointCloud<pcl::Normal> OutputCloudType;
+  typedef pcl::PointCloud<pcl::PointNormal> OutputCloudType;
 
   typedef pcl::search::KdTree<pcl::PointXYZ> TreeType;
   TreeType::Ptr Tree;

@@ -61,7 +61,7 @@ public:
 
   typedef pcl::PointCloud<pcl::PointXYZ> InputCloudType;
 
-  typedef pcl::PointCloud<pcl::Normal> NormalsCloudType;
+  typedef pcl::PointCloud<pcl::PointNormal> NormalsCloudType;
 
   typedef itk::Image<bool, 2> MaskImageType;
 
@@ -77,13 +77,17 @@ public slots:
   void on_actionOpenPointCloud_activated();
   void on_actionSave_activated();
 
-  void on_btnCompute_clicked();
+  void on_btnCompare_clicked();
 
   void on_actionHelp_activated();
   void on_actionQuit_activated();
 
 private:
 
+//   template <typename T>
+//   void RegisterDescriptorComputer(T);
+  void RegisterDescriptorComputer(const std::string& descriptorName);
+  
   void ComputeDifferences();
   void ComputeFeatures();
   void CreateIndexMap();
@@ -125,5 +129,7 @@ private:
 
   ComputeNormals NormalComputer;
 };
+
+#include "ComputeAndCompareDescriptorsWidget.hpp"
 
 #endif

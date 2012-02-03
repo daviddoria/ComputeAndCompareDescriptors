@@ -101,7 +101,7 @@ void ComputeViewpointFeatureHistograms::operator()(InputCloudType::Ptr input, Ma
     //std::cout << "There are " << pointIds.size() << " points in this patch." << std::endl;
 
     // Setup the feature computation
-    pcl::VFHEstimation<InputCloudType::PointType, pcl::Normal, OutputCloudType::PointType> vfhEstimation;
+    pcl::VFHEstimation<InputCloudType::PointType, pcl::PointNormal, OutputCloudType::PointType> vfhEstimation;
 
     //vfhEstimation.setIndices(&pointIds);
     vfhEstimation.setIndices(boost::make_shared<std::vector<int> >(pointIds));

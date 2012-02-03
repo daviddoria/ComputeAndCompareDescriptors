@@ -7,11 +7,15 @@
 #include <vtkSmartPointer.h>
 
 #include <pcl/features/normal_3d.h>
+#include <pcl/common/io.h>
 
 void ComputeNormals::operator()(InputCloudType::Ptr input, OutputCloudType::Ptr output)
 {
+  // Pass the points through
+  copyPointCloud(*input, *output);
+
   // Compute the normals
-  pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> normalEstimation;
+  pcl::NormalEstimation<InputCloudType::PointType, OutputCloudType::PointType> normalEstimation;
   normalEstimation.setInputCloud (input);
 
   this->Tree = TreeType::Ptr(new TreeType);
@@ -32,7 +36,7 @@ void ComputeNormals::AddNormalsToPolyData(OutputCloudType::Ptr cloudWithNormals,
   std::cout << "Attaching features to VTK data..." << std::endl;
   for(size_t pointId = 0; pointId < cloudWithNormals->points.size(); ++pointId)
     {
-    pcl::Normal descriptor = cloudWithNormals->points[pointId];
+    OutputCloudType::PointType descriptor = cloudWithNormals->points[pointId];
     descriptors->SetTupleValue(pointId, descriptor.data_n); // Is this the right member?
     }
 
