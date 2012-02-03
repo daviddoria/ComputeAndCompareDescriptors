@@ -8,12 +8,7 @@
 
 #include <pcl/features/normal_3d.h>
 
-ComputeNormals::ComputeNormals(InputCloud::Ptr input, OutputCloud::Ptr output)
-{
-  Compute(input, output);
-}
-
-void ComputeNormals::Compute(InputCloud::Ptr input, OutputCloud::Ptr output)
+void ComputeNormals::operator()(InputCloudType::Ptr input, OutputCloudType::Ptr output)
 {
   // Compute the normals
   pcl::NormalEstimation<pcl::PointXYZ, pcl::Normal> normalEstimation;
@@ -27,7 +22,7 @@ void ComputeNormals::Compute(InputCloud::Ptr input, OutputCloud::Ptr output)
   normalEstimation.compute (*output);
 }
 
-void ComputeNormals::AddNormalsToPolyData(OutputCloud::Ptr cloudWithNormals, vtkPolyData* const polyData)
+void ComputeNormals::AddNormalsToPolyData(OutputCloudType::Ptr cloudWithNormals, vtkPolyData* const polyData)
 {
   vtkSmartPointer<vtkFloatArray> descriptors = vtkSmartPointer<vtkFloatArray>::New();
   descriptors->SetName("Normals");

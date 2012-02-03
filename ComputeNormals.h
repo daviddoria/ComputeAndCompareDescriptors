@@ -9,17 +9,14 @@ class vtkPolyData;
 
 struct ComputeNormals
 {
-  typedef pcl::PointCloud<pcl::PointXYZ> InputCloud;
-  typedef pcl::PointCloud<pcl::Normal> OutputCloud;
+  typedef pcl::PointCloud<pcl::PointXYZ> InputCloudType;
+  typedef pcl::PointCloud<pcl::Normal> OutputCloudType;
 
   typedef pcl::search::KdTree<pcl::PointXYZ> TreeType;
   TreeType::Ptr Tree;
 
-  ComputeNormals(){}
-  ComputeNormals(InputCloud::Ptr input, OutputCloud::Ptr output);
-  void Compute(InputCloud::Ptr input, OutputCloud::Ptr output);
-  
-  static void AddNormalsToPolyData(OutputCloud::Ptr cloudWithNormals, vtkPolyData* const polyData);
+  void operator()(InputCloudType::Ptr input, OutputCloudType::Ptr output);
+  static void AddNormalsToPolyData(OutputCloudType::Ptr cloudWithNormals, vtkPolyData* const polyData);
 };
 
 #endif

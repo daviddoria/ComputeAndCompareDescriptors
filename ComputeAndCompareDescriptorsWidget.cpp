@@ -16,8 +16,8 @@
  *
  *=========================================================================*/
 
-#include "ui_VFHComparisonWidget.h"
-#include "VFHComparisonWidget.h"
+#include "ui_ComputeAndCompareDescriptorsWidget.h"
+#include "ComputeAndCompareDescriptorsWidget.h"
 
 // ITK
 #include "itkCastImageFilter.h"
@@ -78,7 +78,7 @@
 #include "VTKtoPCL.h"
 #include "ComputeNormals.h"
 
-void VFHComparisonWidget::on_actionHelp_activated()
+void ComputeAndCompareDescriptorsWidget::on_actionHelp_activated()
 {
   QTextEdit* help=new QTextEdit();
 
@@ -91,19 +91,20 @@ void VFHComparisonWidget::on_actionHelp_activated()
   help->show();
 }
 
-void VFHComparisonWidget::on_actionQuit_activated()
+void ComputeAndCompareDescriptorsWidget::on_actionQuit_activated()
 {
   exit(0);
 }
 
 // Constructor
-VFHComparisonWidget::VFHComparisonWidget() : MarkerRadius(.05), PCLCloud(new InputCloud), PCLCloudWithNormals(new NormalsCloud)
+ComputeAndCompareDescriptorsWidget::ComputeAndCompareDescriptorsWidget() :
+MarkerRadius(.05), PCLCloud(new InputCloudType), PCLCloudWithNormals(new NormalsCloudType)
 {
   this->ProgressDialog = new QProgressDialog();
   SharedConstructor();
 };
 
-void VFHComparisonWidget::SharedConstructor()
+void ComputeAndCompareDescriptorsWidget::SharedConstructor()
 {
   this->setupUi(this);
 
@@ -141,7 +142,7 @@ void VFHComparisonWidget::SharedConstructor()
   this->Renderer->AddActor(this->MarkerActor);
 
   this->SelectionStyle = PointSelectionStyle3D::New();
-  this->SelectionStyle->AddObserver(this->SelectionStyle->SelectedPointEvent, this, &VFHComparisonWidget::SelectedPointCallback);
+  this->SelectionStyle->AddObserver(this->SelectionStyle->SelectedPointEvent, this, &ComputeAndCompareDescriptorsWidget::SelectedPointCallback);
 
   // Qt things
   this->qvtkWidget->GetRenderWindow()->AddRenderer(this->Renderer);
@@ -155,19 +156,19 @@ void VFHComparisonWidget::SharedConstructor()
   this->toolBar_left->addAction(actionOpenPointCloud);
 }
 
-void VFHComparisonWidget::SelectedPointCallback(vtkObject* caller, long unsigned int eventId, void* callData)
+void ComputeAndCompareDescriptorsWidget::SelectedPointCallback(vtkObject* caller, long unsigned int eventId, void* callData)
 {
   double p[3];
   this->PointCloud->GetPoint(this->SelectionStyle->SelectedPointId, p);
   this->MarkerActor->SetPosition(p);
 }
 
-void VFHComparisonWidget::Refresh()
+void ComputeAndCompareDescriptorsWidget::Refresh()
 {
   this->qvtkWidget->GetRenderWindow()->Render();
 }
 
-void VFHComparisonWidget::LoadMask(const std::string& fileName)
+void ComputeAndCompareDescriptorsWidget::LoadMask(const std::string& fileName)
 {
   std::cout << "Reading mask " << fileName << std::endl;
   
@@ -179,7 +180,7 @@ void VFHComparisonWidget::LoadMask(const std::string& fileName)
   Helpers::DeepCopy(reader->GetOutput(), this->Mask.GetPointer());
 }
 
-void VFHComparisonWidget::LoadPointCloud(const std::string& fileName)
+void ComputeAndCompareDescriptorsWidget::LoadPointCloud(const std::string& fileName)
 {
   vtkSmartPointer<vtkXMLPolyDataReader> reader = vtkSmartPointer<vtkXMLPolyDataReader>::New();
   reader->SetFileName(fileName.c_str());
@@ -251,16 +252,16 @@ void VFHComparisonWidget::LoadPointCloud(const std::string& fileName)
   VTKtoPCL(this->PointCloud, this->PCLCloud.get());
 
   std::cout << "Computing normals..." << std::endl;
-  this->NormalComputer.Compute(this->PCLCloud, this->PCLCloudWithNormals);
+  this->NormalComputer(this->PCLCloud, this->PCLCloudWithNormals);
 
   CreateIndexMap();
 
 }
 
-void VFHComparisonWidget::on_btnCompute_clicked()
+void ComputeAndCompareDescriptorsWidget::on_btnCompute_clicked()
 {
   // Start the computation.
-  QFuture<void> future = QtConcurrent::run(this, &VFHComparisonWidget::ComputeDifferences);
+  QFuture<void> future = QtConcurrent::run(this, &ComputeAndCompareDescriptorsWidget::ComputeDifferences);
   this->FutureWatcher.setFuture(future);
   this->ProgressDialog->setMinimum(0);
   this->ProgressDialog->setMaximum(0);
@@ -271,7 +272,7 @@ void VFHComparisonWidget::on_btnCompute_clicked()
   // ComputeDifferences();
 }
 
-void VFHComparisonWidget::CreateIndexMap()
+void ComputeAndCompareDescriptorsWidget::CreateIndexMap()
 {
   std::cout << "Creating index map..." << std::endl;
 
@@ -291,7 +292,7 @@ void VFHComparisonWidget::CreateIndexMap()
 
 }
 
-void VFHComparisonWidget::ComputeFeatures()
+void ComputeAndCompareDescriptorsWidget::ComputeFeatures()
 {
   // Only compute the descriptor on a subset of the points
   // Input requirements: 'polyData' must have a vtkIntArray called "OriginalPixel" that has 2-tuples indicating which pixel in the depth image the point corresponds to
@@ -300,12 +301,16 @@ void VFHComparisonWidget::ComputeFeatures()
 
   // Initalize 'output'
   //OutputCloud::Ptr featureCloud = boost::make_shared<OutputCloud>(*(new OutputCloud)); // This works, but maybe a bad idea?
-  OutputCloud::Ptr featureCloud(new OutputCloud);
+  OutputCloudType::Ptr featureCloud(new OutputCloudType);
   featureCloud->resize(this->PointCloud->GetNumberOfPoints());
 
   unsigned int patch_half_width = 10;
 
   vtkIntArray* indexArray = vtkIntArray::SafeDownCast(this->PointCloud->GetPointData()->GetArray("OriginalPixel"));
+  if(!indexArray)
+    {
+    throw std::runtime_error("OriginalPixel array must be available to ComputeFeatures()!");
+    }
 
   vtkIdType selectedPointId = this->SelectionStyle->SelectedPointId;
   int selectedPixelArray[2];
@@ -330,7 +335,7 @@ void VFHComparisonWidget::ComputeFeatures()
   itk::ImageRegionConstIteratorWithIndex<MaskImageType> imageIterator(this->Mask, fullRegion);
   std::cout << "Full region: " << fullRegion << std::endl;
 
-  OutputCloud::PointType emptyPoint;
+  OutputCloudType::PointType emptyPoint;
   for(unsigned int component = 0; component < 308; ++component)
     {
     emptyPoint.histogram[component] = 0.0f;
@@ -388,7 +393,7 @@ void VFHComparisonWidget::ComputeFeatures()
     //std::cout << "There are " << pointIds.size() << " points in this patch." << std::endl;
 
     // Setup the feature computation
-    pcl::VFHEstimation<InputCloud::PointType, pcl::Normal, OutputCloud::PointType> vfhEstimation;
+    pcl::VFHEstimation<InputCloudType::PointType, pcl::Normal, OutputCloudType::PointType> vfhEstimation;
 
     //vfhEstimation.setIndices(&pointIds);
     vfhEstimation.setIndices(boost::make_shared<std::vector<int> >(pointIds));
@@ -406,7 +411,7 @@ void VFHComparisonWidget::ComputeFeatures()
     //vfhEstimation.setRadiusSearch (0.2);
 
     // Actually compute the VFH for this subset of points
-    OutputCloud::Ptr vfhFeature(new OutputCloud);
+    OutputCloudType::Ptr vfhFeature(new OutputCloudType);
     vfhEstimation.compute (*vfhFeature);
 
     unsigned int currentPointId = this->CoordinateMap[imageIterator.GetIndex()];
@@ -437,7 +442,7 @@ void VFHComparisonWidget::ComputeFeatures()
   this->PointCloud->GetPointData()->AddArray(descriptors);
 }
 
-void VFHComparisonWidget::ComputeDifferences()
+void ComputeAndCompareDescriptorsWidget::ComputeDifferences()
 {
   ComputeFeatures();
 
@@ -504,7 +509,7 @@ void VFHComparisonWidget::ComputeDifferences()
 
 }
 
-void VFHComparisonWidget::on_actionSave_activated()
+void ComputeAndCompareDescriptorsWidget::on_actionSave_activated()
 {
   // Get a filename to save
   QString fileName = QFileDialog::getSaveFileName(this, "Save File", ".", "Point Clouds (*.vtp)");
@@ -519,7 +524,7 @@ void VFHComparisonWidget::on_actionSave_activated()
   SavePointCloud(fileName.toStdString());
 }
 
-void VFHComparisonWidget::SavePointCloud(const std::string& fileName)
+void ComputeAndCompareDescriptorsWidget::SavePointCloud(const std::string& fileName)
 {
   vtkSmartPointer<vtkXMLPolyDataWriter> writer = vtkSmartPointer<vtkXMLPolyDataWriter>::New();
   writer->SetFileName(fileName.c_str());
@@ -527,7 +532,7 @@ void VFHComparisonWidget::SavePointCloud(const std::string& fileName)
   writer->Write();
 }
 
-void VFHComparisonWidget::on_actionOpenPointCloud_activated()
+void ComputeAndCompareDescriptorsWidget::on_actionOpenPointCloud_activated()
 {
   // Get a filename to open
   QString fileName = QFileDialog::getOpenFileName(this, "Open File", ".", "Point Clouds (*.vtp)");

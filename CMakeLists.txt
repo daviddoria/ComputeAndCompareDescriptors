@@ -25,8 +25,16 @@ QT4_WRAP_CPP(MOCSrcs ComputeAndCompareDescriptorsWidget.h)
 
 ADD_EXECUTABLE(ComputeAndCompareDescriptors
 ComputeAndCompareDescriptors.cpp
-ComputeNormals.cpp
 ComputeAndCompareDescriptorsWidget.cpp
+
+ComputeNormals.cpp
+
+ComputeClusteredViewpointFeatureHistograms.cpp
+ComputeViewpointFeatureHistograms.cpp
+ComputeMaskedViewpointFeatureHistograms.cpp
+
+ComputeAndCompareDescriptorsWidget.cpp
+
 Helpers.cpp
 PointSelectionStyle3D.cpp
 ${UISrcs} ${MOCSrcs} ${ResourceSrcs})

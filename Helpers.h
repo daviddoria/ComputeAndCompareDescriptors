@@ -29,6 +29,10 @@ class vtkPoints;
 
 namespace Helpers
 {
+
+typedef std::map<itk::Index<2>, unsigned int, itk::Index<2>::LexicographicCompare> CoordinateMapType;
+CoordinateMapType ComputeMap(vtkPolyData* const polyData);
+
 void OutputArrayNames(vtkPolyData* const polyData);
 
 float ComputeAverageSpacing(vtkPoints* const points, const unsigned int numberOfPointsToUse);

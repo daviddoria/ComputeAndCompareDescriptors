@@ -40,8 +40,31 @@ void OutputArrayNames(vtkPolyData* const polyData)
     {
     std::cout << polyData->GetPointData()->GetArrayName(i) << std::endl;
     }
-
 }
+
+CoordinateMapType ComputeMap(vtkPolyData* const polyData)
+{
+  CoordinateMapType coordinateMap;
+  vtkIntArray* indexArray = vtkIntArray::SafeDownCast(polyData->GetPointData()->GetArray("OriginalPixel"));
+  if(!indexArray)
+    {
+    throw std::runtime_error("OriginalPixel array must be available to ComputeMap!");
+    }
+
+  for(vtkIdType pointId = 0; pointId < polyData->GetNumberOfPoints(); ++pointId)
+    {
+    //int* pixelIndexArray;
+    int pixelIndexArray[2];
+    indexArray->GetTupleValue(pointId, pixelIndexArray);
+
+    itk::Index<2> pixelIndex;
+    pixelIndex[0] = pixelIndexArray[0];
+    pixelIndex[1] = pixelIndexArray[1];
+    coordinateMap[pixelIndex] = pointId;
+    }
+  return coordinateMap;
+}
+
 
 float ComputeAverageSpacing(vtkPoints* points, unsigned int numberOfPointsToUse)
 {

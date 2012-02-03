@@ -19,7 +19,7 @@
 #include <QApplication>
 #include <QCleanlooksStyle>
 
-#include "VFHComparisonWidget.h"
+#include "ComputeAndCompareDescriptorsWidget.h"
 
 int main( int argc, char** argv )
 {
@@ -27,7 +27,7 @@ int main( int argc, char** argv )
 
   QApplication::setStyle(new QCleanlooksStyle);
 
-  VFHComparisonWidget vfhComparisonWidget;
+  ComputeAndCompareDescriptorsWidget computeAndCompareDescriptorsWidget;
 
   std::cout << "argc: " << argc << std::endl;
   if(argc == 4)
@@ -37,11 +37,11 @@ int main( int argc, char** argv )
     std::string outputFileName = argv[3];
 
     // Must load mask before point cloud, as the mask is used to mask the point cloud
-    vfhComparisonWidget.LoadMask(maskFileName);
-    vfhComparisonWidget.LoadPointCloud(VTPFileName);
+    computeAndCompareDescriptorsWidget.LoadMask(maskFileName);
+    computeAndCompareDescriptorsWidget.LoadPointCloud(VTPFileName);
 
     }
-  vfhComparisonWidget.show();
+  computeAndCompareDescriptorsWidget.show();
 
   return app.exec();
 }

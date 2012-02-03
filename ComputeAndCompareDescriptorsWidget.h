@@ -19,7 +19,7 @@
 #ifndef VFHComparisonWidget_H
 #define VFHComparisonWidget_H
 
-#include "ui_VFHComparisonWidget.h"
+#include "ui_ComputeAndCompareDescriptorsWidget.h"
 
 // VTK
 #include <vtkSmartPointer.h>
@@ -52,21 +52,23 @@ class vtkPolyData;
 class vtkPolyDataMapper;
 class vtkRenderer;
 
-class VFHComparisonWidget : public QMainWindow, public Ui::VFHComparisonWidget
+class ComputeAndCompareDescriptorsWidget : public QMainWindow, public Ui::ComputeAndCompareDescriptorsWidget
 {
   Q_OBJECT
 public:
 
-  typedef pcl::PointCloud<pcl::PointXYZ> InputCloud;
-  typedef pcl::PointCloud<pcl::VFHSignature308> OutputCloud;
-  typedef pcl::PointCloud<pcl::Normal> NormalsCloud;
+  enum DescriptorEnum {CVFH, VFH, MASKED_VFH, SPINIMAGES, SHAPECONTEXTS, FPFH, PFH};
+
+  typedef pcl::PointCloud<pcl::PointXYZ> InputCloudType;
+
+  typedef pcl::PointCloud<pcl::Normal> NormalsCloudType;
 
   typedef itk::Image<bool, 2> MaskImageType;
 
   // Constructor/Destructor
-  VFHComparisonWidget();
+  ComputeAndCompareDescriptorsWidget();
 
-  ~VFHComparisonWidget() {};
+  ~ComputeAndCompareDescriptorsWidget() {};
 
   void LoadPointCloud(const std::string& fileName);
   void LoadMask(const std::string& fileName);
@@ -115,9 +117,9 @@ private:
   float MarkerRadius;
 
   void SelectedPointCallback(vtkObject* caller, long unsigned int eventId, void* callData);
-  
-  NormalsCloud::Ptr PCLCloudWithNormals;
-  InputCloud::Ptr PCLCloud;
+
+  InputCloudType::Ptr PCLCloud;
+  NormalsCloudType::Ptr PCLCloudWithNormals;
 
   MaskImageType::Pointer Mask;
 
