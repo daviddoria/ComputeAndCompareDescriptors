@@ -11,7 +11,7 @@ class ComputeFastPointFeatureHistograms
 {
 public:
   static const std::string DescriptorName;
-  
+
   typedef pcl::PointCloud<pcl::PointNormal> InputCloud;
   typedef pcl::PointCloud<pcl::FPFHSignature33> OutputCloud;
 

@@ -305,22 +305,24 @@ void ComputeAndCompareDescriptorsWidget::CreateIndexMap()
 
 void ComputeAndCompareDescriptorsWidget::ComputeFeatures()
 {
+  std::cout << "ComputeFeatures()..." << std::endl;
+
   if(cmbDescriptor->currentText().toStdString() == "CVFH")
     {
     ComputeClusteredViewpointFeatureHistograms cvfhComputer;
     cvfhComputer(this->PCLCloudWithNormals, this->Mask, this->PointCloud);
     }
-  if(cmbDescriptor->currentText().toStdString() == "VFH")
+  else if(cmbDescriptor->currentText().toStdString() == "VFH")
     {
     ComputeViewpointFeatureHistograms vfhComputer;
     vfhComputer(this->PCLCloudWithNormals, this->Mask, this->PointCloud);
     }
-  if(cmbDescriptor->currentText().toStdString() == "PFH")
+  else if(cmbDescriptor->currentText().toStdString() == "PFH")
     {
     ComputePointFeatureHistograms pfhComputer;
     pfhComputer(this->PCLCloudWithNormals, this->Mask, this->PointCloud);
     }
-  if(cmbDescriptor->currentText().toStdString() == "FPFH")
+  else if(cmbDescriptor->currentText().toStdString() == "FPFH")
     {
     ComputeFastPointFeatureHistograms fpfhComputer;
     fpfhComputer(this->PCLCloudWithNormals, this->PointCloud);
@@ -333,6 +335,8 @@ void ComputeAndCompareDescriptorsWidget::ComputeFeatures()
 
 void ComputeAndCompareDescriptorsWidget::ComputeDifferences()
 {
+  std::cout << "ComputeDifferences()..." << std::endl;
+
   ComputeFeatures();
 
   vtkIdType numberOfPoints = this->PointCloud->GetNumberOfPoints();

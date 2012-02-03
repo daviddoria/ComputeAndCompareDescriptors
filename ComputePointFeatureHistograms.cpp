@@ -51,8 +51,10 @@ void ComputePointFeatureHistograms::operator()(InputCloudType::Ptr input, MaskIm
 
 void ComputePointFeatureHistograms::AddToPolyData(OutputCloudType::Ptr outputCloud, vtkPolyData* const polyData)
 {
+  std::cout << "Attaching PFH features to VTK data..." << std::endl;
+
   vtkSmartPointer<vtkFloatArray> descriptors = vtkSmartPointer<vtkFloatArray>::New();
-  descriptors->SetName("PointFeatureHistogram");
+  descriptors->SetName(this->DescriptorName.c_str());
   descriptors->SetNumberOfComponents(125);
   descriptors->SetNumberOfTuples(polyData->GetNumberOfPoints());
 
@@ -64,7 +66,6 @@ void ComputePointFeatureHistograms::AddToPolyData(OutputCloudType::Ptr outputClo
     descriptors->SetTupleValue(pointId, zeroVector.data());
     }
 
-  std::cout << "Attaching features to VTK data..." << std::endl;
   for(size_t pointId = 0; pointId < outputCloud->points.size(); ++pointId)
     {
     OutputCloudType::PointType descriptor = outputCloud->points[pointId];

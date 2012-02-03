@@ -45,7 +45,7 @@ int main (int argc, char** argv)
 
   std::cout << "Loaded " << cloud->points.size() << " points." << std::endl;
 
-  // Display and retrieve the shape context descriptor vector for the 0th point.
+  // Display and retrieve the spin image descriptor vector for the 0th point.
   //SpinImage descriptor = spinImages->points[0];
   //std::cout << descriptor << std::endl;
 
@@ -117,7 +117,7 @@ void AddToPolyData(OutputCloud::Ptr outputCloud, vtkPolyData* const polyData)
   descriptors->SetNumberOfComponents(numberOfBins);
   descriptors->SetNumberOfTuples(polyData->GetNumberOfPoints());
 
-  std::cout << "Attaching shape contexts to VTK data..." << std::endl;
+  std::cout << "Attaching spin images to VTK data..." << std::endl;
   for(size_t pointId = 0; pointId < outputCloud->points.size(); ++pointId)
     {
       descriptors->SetTupleValue(pointId, outputCloud->points[pointId].histogram);

@@ -30,24 +30,21 @@ void ComputeFastPointFeatureHistograms::operator()(InputCloud::Ptr input, vtkPol
 
   fpfhEstimation.setRadiusSearch (0.2);
 
-  // Actually compute the spin images
+  // Actually compute the features
   fpfhEstimation.compute (*pfhFeatures);
 
-  std::cout << "output points.size (): " << pfhFeatures->points.size () << std::endl;
-
-  // Display and retrieve the shape context descriptor vector for the 0th point.
-  pcl::FPFHSignature33 descriptor = pfhFeatures->points[0];
-  std::cout << descriptor << std::endl;
+  AddToPolyData(pfhFeatures, polyData);
 }
 
 void ComputeFastPointFeatureHistograms::AddToPolyData(OutputCloud::Ptr outputCloud, vtkPolyData* const polyData)
 {
+  std::cout << "Attaching FPFH to VTK data..." << std::endl;
+
   vtkSmartPointer<vtkFloatArray> descriptors = vtkSmartPointer<vtkFloatArray>::New();
-  descriptors->SetName("Normals");
-  descriptors->SetNumberOfComponents(3);
+  descriptors->SetName(this->DescriptorName.c_str());
+  descriptors->SetNumberOfComponents(33);
   descriptors->SetNumberOfTuples(outputCloud->points.size());
 
-  std::cout << "Attaching features to VTK data..." << std::endl;
   for(size_t pointId = 0; pointId < outputCloud->points.size(); ++pointId)
     {
     OutputCloud::PointType descriptor = outputCloud->points[pointId];

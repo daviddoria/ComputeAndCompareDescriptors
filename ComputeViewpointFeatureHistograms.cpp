@@ -60,8 +60,15 @@ void ComputeViewpointFeatureHistograms::operator()(InputCloudType::Ptr input, Ma
   TreeType::Ptr tree = typename TreeType::Ptr(new TreeType);
 
   //std::fstream fout("/home/doriad/temp/output.txt");
+  unsigned int counter = 0;
+
   while(!imageIterator.IsAtEnd())
     {
+    counter++;
+    if(counter % 1000 == 0)
+      {
+      std::cout << "Processing point " << counter << " out of " << mask->GetLargestPossibleRegion().GetNumberOfPixels() << std::endl;
+      }
     //std::cout << "Computing descriptor for pixel " << imageIterator.GetIndex() << std::endl;
     //fout << "Computing descriptor for pixel " << imageIterator.GetIndex() << std::endl;
     itk::ImageRegion<2> patchRegion = Helpers::GetRegionInRadiusAroundPixel(imageIterator.GetIndex(), patch_half_width);
@@ -131,7 +138,7 @@ void ComputeViewpointFeatureHistograms::operator()(InputCloudType::Ptr input, Ma
 void ComputeViewpointFeatureHistograms::AddToPolyData(OutputCloudType::Ptr outputCloud, vtkPolyData* const polyData)
 {
   vtkSmartPointer<vtkFloatArray> descriptors = vtkSmartPointer<vtkFloatArray>::New();
-  descriptors->SetName("ViewpointFeatureHistograms");
+  descriptors->SetName(this->DescriptorName.c_str());
   descriptors->SetNumberOfComponents(308);
   descriptors->SetNumberOfTuples(polyData->GetNumberOfPoints());
 
