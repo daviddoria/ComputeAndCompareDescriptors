@@ -34,6 +34,7 @@ ComputeViewpointFeatureHistograms.cpp
 ComputeMaskedViewpointFeatureHistograms.cpp
 ComputePointFeatureHistograms.cpp
 ComputeFastPointFeatureHistograms.cpp
+ComputePFHRGB.cpp
 
 ComputeAndCompareDescriptorsWidget.cpp
 

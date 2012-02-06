@@ -25,6 +25,9 @@
 #include "itkImageFileWriter.h"
 #include "itkRegionOfInterestImageFilter.h"
 
+// PCL
+#include <pcl/common/io.h> // For copyPointCloud
+
 // Qt
 #include <QFileDialog>
 #include <QIcon>
@@ -77,6 +80,7 @@
 #include "ComputeViewpointFeatureHistograms.h"
 #include "ComputePointFeatureHistograms.h"
 #include "ComputeFastPointFeatureHistograms.h"
+#include "ComputePFHRGB.h"
 
 void ComputeAndCompareDescriptorsWidget::on_actionHelp_activated()
 {
@@ -98,7 +102,7 @@ void ComputeAndCompareDescriptorsWidget::on_actionQuit_activated()
 
 // Constructor
 ComputeAndCompareDescriptorsWidget::ComputeAndCompareDescriptorsWidget() :
-MarkerRadius(.05), PCLCloudWithNormals(new NormalsCloudType)
+MarkerRadius(.05), PCLCloud(new FullCloudType)
 {
   this->ProgressDialog = new QProgressDialog();
   SharedConstructor();
@@ -117,10 +121,10 @@ void ComputeAndCompareDescriptorsWidget::SharedConstructor()
   this->PointPicker->PickFromListOn();
 
   // Point cloud
-  this->PointCloud = vtkSmartPointer<vtkPolyData>::New();
+  this->PointCloudVTK = vtkSmartPointer<vtkPolyData>::New();
 
   this->PointCloudMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
-  this->PointCloudMapper->SetInputConnection(this->PointCloud->GetProducerPort());
+  this->PointCloudMapper->SetInputConnection(this->PointCloudVTK->GetProducerPort());
 
   this->PointCloudActor = vtkSmartPointer<vtkActor>::New();
   this->PointCloudActor->SetMapper(this->PointCloudMapper);
@@ -160,12 +164,13 @@ void ComputeAndCompareDescriptorsWidget::SharedConstructor()
   RegisterDescriptorComputer(ComputeViewpointFeatureHistograms::DescriptorName);
   RegisterDescriptorComputer(ComputePointFeatureHistograms::DescriptorName);
   RegisterDescriptorComputer(ComputeFastPointFeatureHistograms::DescriptorName);
+  RegisterDescriptorComputer(ComputePFHRGB::DescriptorName);
 }
 
 void ComputeAndCompareDescriptorsWidget::SelectedPointCallback(vtkObject* caller, long unsigned int eventId, void* callData)
 {
   double p[3];
-  this->PointCloud->GetPoint(this->SelectionStyle->SelectedPointId, p);
+  this->PointCloudVTK->GetPoint(this->SelectionStyle->SelectedPointId, p);
   this->MarkerActor->SetPosition(p);
 }
 
@@ -242,9 +247,9 @@ void ComputeAndCompareDescriptorsWidget::LoadPointCloud(const std::string& fileN
     vtkSmartPointer<vtkDataSetSurfaceFilter>::New();
   surfaceFilter->SetInputConnection(extractSelectedIds->GetOutputPort());
   surfaceFilter->Update(); 
-  this->PointCloud->DeepCopy(surfaceFilter->GetOutput());
+  this->PointCloudVTK->DeepCopy(surfaceFilter->GetOutput());
 
-  this->PointCloudMapper->SetInputConnection(this->PointCloud->GetProducerPort());
+  this->PointCloudMapper->SetInputConnection(this->PointCloudVTK->GetProducerPort());
 
   this->PointCloudActor->GetProperty()->SetRepresentationToPoints();
 
@@ -253,7 +258,7 @@ void ComputeAndCompareDescriptorsWidget::LoadPointCloud(const std::string& fileN
   this->PointPicker->AddPickList(this->PointCloudActor);
 
   this->qvtkWidget->GetRenderWindow()->GetInteractor()->SetPicker(this->PointPicker);
-  this->SelectionStyle->Points = this->PointCloud;
+  this->SelectionStyle->Points = this->PointCloudVTK;
   this->SelectionStyle->SetCurrentRenderer(this->Renderer);
   this->qvtkWidget->GetRenderWindow()->GetInteractor()->SetInteractorStyle(this->SelectionStyle);
 
@@ -261,10 +266,10 @@ void ComputeAndCompareDescriptorsWidget::LoadPointCloud(const std::string& fileN
 
   std::cout << "Converting to PCL..." << std::endl;
   //VTKtoPCL(this->PointCloud.GetPointer(), this->PCLCloud.get());
-  VTKtoPCL(this->PointCloud, this->PCLCloudWithNormals.get());
+  VTKtoPCL(this->PointCloudVTK, this->PCLCloud.get());
 
   std::cout << "Computing normals..." << std::endl;
-  this->NormalComputer(this->PCLCloudWithNormals, this->PCLCloudWithNormals);
+  this->NormalComputer(this->PCLCloud, this->PCLCloud);
 
   CreateIndexMap();
 
@@ -289,8 +294,8 @@ void ComputeAndCompareDescriptorsWidget::CreateIndexMap()
   std::cout << "Creating index map..." << std::endl;
 
   // Add a map from all of the pixels to their corresponding point id. 
-  vtkIntArray* indexArray = vtkIntArray::SafeDownCast(this->PointCloud->GetPointData()->GetArray("OriginalPixel"));
-  for(vtkIdType pointId = 0; pointId < this->PointCloud->GetNumberOfPoints(); ++pointId)
+  vtkIntArray* indexArray = vtkIntArray::SafeDownCast(this->PointCloudVTK->GetPointData()->GetArray("OriginalPixel"));
+  for(vtkIdType pointId = 0; pointId < this->PointCloudVTK->GetNumberOfPoints(); ++pointId)
     {
     //int* pixelIndexArray;
     int pixelIndexArray[2];
@@ -310,22 +315,38 @@ void ComputeAndCompareDescriptorsWidget::ComputeFeatures()
   if(cmbDescriptor->currentText().toStdString() == "CVFH")
     {
     ComputeClusteredViewpointFeatureHistograms cvfhComputer;
-    cvfhComputer(this->PCLCloudWithNormals, this->Mask, this->PointCloud);
+    PointNormalCloudType::Ptr cloud ( new PointNormalCloudType);
+    copyPointCloud(*this->PCLCloud, *cloud);
+    cvfhComputer(cloud, this->Mask, this->PointCloudVTK);
     }
   else if(cmbDescriptor->currentText().toStdString() == "VFH")
     {
     ComputeViewpointFeatureHistograms vfhComputer;
-    vfhComputer(this->PCLCloudWithNormals, this->Mask, this->PointCloud);
+    ComputeClusteredViewpointFeatureHistograms cvfhComputer;
+    PointNormalCloudType::Ptr cloud ( new PointNormalCloudType);
+    copyPointCloud(*this->PCLCloud, *cloud);
+    vfhComputer(cloud, this->Mask, this->PointCloudVTK);
     }
   else if(cmbDescriptor->currentText().toStdString() == "PFH")
     {
     ComputePointFeatureHistograms pfhComputer;
-    pfhComputer(this->PCLCloudWithNormals, this->Mask, this->PointCloud);
+    ComputeClusteredViewpointFeatureHistograms cvfhComputer;
+    PointNormalCloudType::Ptr cloud ( new PointNormalCloudType);
+    copyPointCloud(*this->PCLCloud, *cloud);
+    pfhComputer(cloud, this->Mask, this->PointCloudVTK);
     }
   else if(cmbDescriptor->currentText().toStdString() == "FPFH")
     {
     ComputeFastPointFeatureHistograms fpfhComputer;
-    fpfhComputer(this->PCLCloudWithNormals, this->PointCloud);
+    ComputeClusteredViewpointFeatureHistograms cvfhComputer;
+    PointNormalCloudType::Ptr cloud ( new PointNormalCloudType);
+    copyPointCloud(*this->PCLCloud, *cloud);
+    fpfhComputer(cloud, this->PointCloudVTK);
+    }
+  else if(cmbDescriptor->currentText().toStdString() == "PFHRGB")
+    {
+    ComputePFHRGB pfhrgbComputer;
+    pfhrgbComputer(this->PCLCloud, this->Mask, this->PointCloudVTK);
     }
   else
     {
@@ -339,7 +360,7 @@ void ComputeAndCompareDescriptorsWidget::ComputeDifferences()
 
   ComputeFeatures();
 
-  vtkIdType numberOfPoints = this->PointCloud->GetNumberOfPoints();
+  vtkIdType numberOfPoints = this->PointCloudVTK->GetNumberOfPoints();
   //std::cout << "There are " << numberOfPoints << " points." << std::endl;
 
   vtkIdType selectedPointId = this->SelectionStyle->SelectedPointId;
@@ -353,7 +374,7 @@ void ComputeAndCompareDescriptorsWidget::ComputeDifferences()
 
   std::string nameOfArrayToCompare = cmbDescriptor->currentText().toStdString();
 
-  vtkDataArray* descriptorArray = this->PointCloud->GetPointData()->GetArray(nameOfArrayToCompare.c_str());
+  vtkDataArray* descriptorArray = this->PointCloudVTK->GetPointData()->GetArray(nameOfArrayToCompare.c_str());
 
   if(!descriptorArray)
     {
@@ -371,7 +392,7 @@ void ComputeAndCompareDescriptorsWidget::ComputeDifferences()
   differences->SetNumberOfComponents(1);
   differences->SetNumberOfTuples(numberOfPoints);
 
-  for(vtkIdType pointId = 0; pointId < this->PointCloud->GetNumberOfPoints(); ++pointId)
+  for(vtkIdType pointId = 0; pointId < this->PointCloudVTK->GetNumberOfPoints(); ++pointId)
     {
     double* currentDescriptor = descriptorArray->GetTuple(pointId);
     //std::cout << "descriptor " << pointId << " : " << currentDescriptor[0] << " " << currentDescriptor[1] << std::endl;
@@ -379,8 +400,8 @@ void ComputeAndCompareDescriptorsWidget::ComputeDifferences()
     differences->SetValue(pointId, difference);
     }
 
-  this->PointCloud->GetPointData()->AddArray(differences);
-  this->PointCloud->GetPointData()->SetActiveScalars(descriptorDifferenceName.c_str());
+  this->PointCloudVTK->GetPointData()->AddArray(differences);
+  this->PointCloudVTK->GetPointData()->SetActiveScalars(descriptorDifferenceName.c_str());
 
   float range[2];
   differences->GetValueRange(range);
@@ -421,7 +442,7 @@ void ComputeAndCompareDescriptorsWidget::SavePointCloud(const std::string& fileN
 {
   vtkSmartPointer<vtkXMLPolyDataWriter> writer = vtkSmartPointer<vtkXMLPolyDataWriter>::New();
   writer->SetFileName(fileName.c_str());
-  writer->SetInputConnection(this->PointCloud->GetProducerPort());
+  writer->SetInputConnection(this->PointCloudVTK->GetProducerPort());
   writer->Write();
 }
 

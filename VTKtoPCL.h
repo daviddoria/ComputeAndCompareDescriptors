@@ -37,13 +37,26 @@ void VTKtoPCL(vtkPolyData* const polydata, typename pcl::PointCloud<PointT>* con
   cloud->is_dense = false;
   cloud->points.resize(cloud->width);
 
+  vtkUnsignedCharArray* colors = vtkUnsignedCharArray::SafeDownCast(polydata->GetPointData()->GetArray("Colors"));
+
   for (size_t i = 0; i < cloud->points.size (); ++i)
     {
+    // Coordinate
     double p[3];
     polydata->GetPoint(i,p);
     cloud->points[i].x = p[0];
     cloud->points[i].y = p[1];
     cloud->points[i].z = p[2];
+
+    // Color
+    if(colors)
+      {
+      unsigned char color[3];
+      colors->GetTupleValue(i,color);
+      cloud->points[i].r = color[0];
+      cloud->points[i].g = color[1];
+      cloud->points[i].b = color[2];
+      }
     }
 }
 

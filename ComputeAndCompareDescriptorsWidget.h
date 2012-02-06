@@ -62,9 +62,9 @@ class ComputeAndCompareDescriptorsWidget : public QMainWindow, public Ui::Comput
   Q_OBJECT
 public:
 
-  // enum DescriptorEnum {CVFH, VFH, MASKED_VFH, SPINIMAGES, SHAPECONTEXTS, FPFH, PFH};
-
-  typedef pcl::PointCloud<pcl::PointNormal> NormalsCloudType;
+  typedef pcl::PointCloud<pcl::PointNormal> PointNormalCloudType;
+  // This overkill for most descriptors, but some need the RGB. That is, this type is a superset of any requirement of the feature filters.
+  typedef pcl::PointCloud<pcl::PointXYZRGBNormal> FullCloudType; 
 
   typedef itk::Image<bool, 2> MaskImageType;
 
@@ -100,7 +100,7 @@ private:
 
   void SavePointCloud(const std::string& fileName);
 
-  vtkSmartPointer<vtkPolyData> PointCloud;
+  vtkSmartPointer<vtkPolyData> PointCloudVTK;
 
   void SharedConstructor();
   QFutureWatcher<void> FutureWatcher;
@@ -125,11 +125,11 @@ private:
 
   void SelectedPointCallback(vtkObject* caller, long unsigned int eventId, void* callData);
 
-  NormalsCloudType::Ptr PCLCloudWithNormals;
+  FullCloudType::Ptr PCLCloud;
 
   MaskImageType::Pointer Mask;
 
-  ComputeNormals<NormalsCloudType::PointType, NormalsCloudType::PointType> NormalComputer;
+  ComputeNormals<FullCloudType::PointType, FullCloudType::PointType> NormalComputer;
 };
 
 #include "ComputeAndCompareDescriptorsWidget.hpp"

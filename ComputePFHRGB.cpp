@@ -1,4 +1,4 @@
-#include "ComputeClusteredViewpointFeatureHistograms.h"
+#include "ComputePFHRGB.h"
 
 // STL
 #include <iostream>
@@ -19,21 +19,21 @@
 // PCL
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
-#include <pcl/features/cvfh.h>
+#include <pcl/features/pfhrgb.h>
 #include <pcl/features/normal_3d.h>
+#include <pcl/filters/extract_indices.h>
 
 // Custom
 #include "Helpers.h"
 #include "ComputeNormals.h"
 
-const std::string ComputeClusteredViewpointFeatureHistograms::DescriptorName = "CVFH";
+const std::string ComputePFHRGB::DescriptorName = "PFHRGB";
 
-void ComputeClusteredViewpointFeatureHistograms::operator()(InputCloudType::Ptr input,
-                                                            MaskImageType* mask, vtkPolyData* const polyData)
+void ComputePFHRGB::operator()(InputCloudType::Ptr input, MaskImageType* mask, vtkPolyData* const polyData)
 {
   // Initalize 'output'
-  OutputCloudType::Ptr cvfhFeatures(new OutputCloudType);
-  cvfhFeatures->resize(polyData->GetNumberOfPoints());
+  OutputCloudType::Ptr pfhrgbFeatures(new OutputCloudType);
+  pfhrgbFeatures->resize(polyData->GetNumberOfPoints());
 
   std::cout << "Creating index map..." << std::endl;
   Helpers::CoordinateMapType coordinateMap = Helpers::ComputeMap(polyData);
@@ -46,7 +46,7 @@ void ComputeClusteredViewpointFeatureHistograms::operator()(InputCloudType::Ptr 
   std::cout << "Full region: " << fullRegion << std::endl;
 
   OutputCloudType::PointType emptyPoint;
-  for(unsigned int component = 0; component < 308; ++component)
+  for(unsigned int component = 0; component < 250; ++component)
     {
     emptyPoint.histogram[component] = 0.0f;
     }
@@ -60,19 +60,19 @@ void ComputeClusteredViewpointFeatureHistograms::operator()(InputCloudType::Ptr 
   while(!imageIterator.IsAtEnd())
     {
     counter++;
-    std::cout << "Processing point " << counter << " out of " << mask->GetLargestPossibleRegion().GetNumberOfPixels() << std::endl;
-//     if(counter % 1000 == 0)
-//       {
-//       std::cout << "Processing point " << counter << " out of " << mask->GetLargestPossibleRegion().GetNumberOfPixels() << std::endl;
-//       }
-      
+    //std::cout << "Processing point " << counter << " out of " << mask->GetLargestPossibleRegion().GetNumberOfPixels() << std::endl;
+    if(counter % 100 == 0)
+      {
+      std::cout << "Processing point " << counter << " out of " << mask->GetLargestPossibleRegion().GetNumberOfPixels() << std::endl;
+      }
+
     //std::cout << "Computing descriptor for pixel " << imageIterator.GetIndex() << std::endl;
     itk::ImageRegion<2> patchRegion = Helpers::GetRegionInRadiusAroundPixel(imageIterator.GetIndex(), patch_half_width);
     //std::cout << "patchRegion: " << patchRegion << std::endl;
     if(!fullRegion.IsInside(patchRegion))
       {
       ++imageIterator;
-      std::cout << "Skipping patch..." << std::endl;
+      //std::cout << "Skipping patch..." << std::endl;
       continue;
       }
 
@@ -94,49 +94,63 @@ void ComputeClusteredViewpointFeatureHistograms::operator()(InputCloudType::Ptr 
       {
       unsigned int currentPointId = coordinateMap[imageIterator.GetIndex()];
 
-      cvfhFeatures->points[currentPointId] = emptyPoint;
+      pfhrgbFeatures->points[currentPointId] = emptyPoint;
       ++imageIterator;
       continue;
       }
-    std::cout << "There are " << pointIds.size() << " points in this patch." << std::endl;
+    //std::cout << "There are " << pointIds.size() << " points in this patch." << std::endl;
+
+    pcl::ExtractIndices<InputCloudType::PointType> extractIndices;
+    extractIndices.setIndices(boost::make_shared<std::vector<int> > (pointIds));
+    extractIndices.setInputCloud(input);
+    InputCloudType::Ptr extracted(new InputCloudType);
+    extractIndices.filter(*extracted);
+
+    //std::cout << "There are " << extracted->points.size() << " extracted points." << std::endl;
 
     // Setup the feature computation
-    pcl::CVFHEstimation<InputCloudType::PointType, pcl::PointNormal, OutputCloudType::PointType> cvfhEstimation;
+    pcl::PFHRGBEstimation<InputCloudType::PointType, InputCloudType::PointType, OutputCloudType::PointType> pfhrgbEstimation;
 
-    //cvfhEstimation.setIndices(&pointIds);
-    cvfhEstimation.setIndices(boost::make_shared<std::vector<int> >(pointIds));
+    unsigned int currentPointIdFullCloud = coordinateMap[imageIterator.GetIndex()];
+    int currentPointIdExtractedCloud = -1;
+    for(unsigned int i = 0; i < pointIds.size(); ++i)
+      {
+      if(pointIds[i] == currentPointIdFullCloud)
+        {
+        currentPointIdExtractedCloud = i;
+        }
+      }
+    assert(currentPointIdExtractedCloud != -1); // We should definitely find this point, as it was extracted!
 
-    // Provide the original point cloud (without normals)
-    cvfhEstimation.setInputCloud (input);
+    std::vector<int> centerPointId(1); // We store this as in a vector because normally more than one point is computed, but here we only want the center.
+    centerPointId[0] = currentPointIdExtractedCloud;
 
-    // Provide the point cloud with normals
-    cvfhEstimation.setInputNormals(input);
+    pfhrgbEstimation.setIndices(boost::make_shared<std::vector<int> >(centerPointId));
 
-    // cvfhEstimation.setInputWithNormals(cloud, cloudWithNormals); VFHEstimation does not have this function
-    // Use the same KdTree from the normal estimation
-    cvfhEstimation.setSearchMethod(tree);
+    pfhrgbEstimation.setInputCloud (extracted);
+    pfhrgbEstimation.setInputNormals(extracted);
 
-    //cvfhEstimation.setRadiusSearch (0.2);
+    pfhrgbEstimation.setSearchMethod(tree);
+
+    pfhrgbEstimation.setKSearch(pointIds.size() - 1);
 
     // Actually compute the VFH for this subset of points
-    OutputCloudType::Ptr cvfhFeature(new OutputCloudType);
-    cvfhEstimation.compute (*cvfhFeature);
+    OutputCloudType::Ptr pfhrgbFeature(new OutputCloudType);
+    pfhrgbEstimation.compute (*pfhrgbFeature);
 
-    unsigned int currentPointId = coordinateMap[imageIterator.GetIndex()];
-
-    cvfhFeatures->points[currentPointId] = cvfhFeature->points[0];
+    pfhrgbFeatures->points[currentPointIdFullCloud] = pfhrgbFeature->points[0];
 
     ++imageIterator;
     } // end while imageIterator
 
-  AddToPolyData(cvfhFeatures, polyData);
+  AddToPolyData(pfhrgbFeatures, polyData);
 }
 
-void ComputeClusteredViewpointFeatureHistograms::AddToPolyData(OutputCloudType::Ptr outputCloud, vtkPolyData* const polyData)
+void ComputePFHRGB::AddToPolyData(OutputCloudType::Ptr outputCloud, vtkPolyData* const polyData)
 {
   vtkSmartPointer<vtkFloatArray> descriptors = vtkSmartPointer<vtkFloatArray>::New();
   descriptors->SetName(DescriptorName.c_str());
-  descriptors->SetNumberOfComponents(308);
+  descriptors->SetNumberOfComponents(250);
   descriptors->SetNumberOfTuples(polyData->GetNumberOfPoints());
 
 //   // Zero all of the descriptors, we may not have one to assign for every point.
