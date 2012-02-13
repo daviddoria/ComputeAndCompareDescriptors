@@ -16,7 +16,6 @@
  *
  *=========================================================================*/
 
-#include "ui_ComputeAndCompareDescriptorsWidget.h"
 #include "ComputeAndCompareDescriptorsWidget.h"
 
 // ITK
@@ -34,12 +33,14 @@
 #include <QProgressDialog>
 #include <QTextEdit>
 #include <QtConcurrentRun>
+#include <QMessageBox>
 
 // VTK
 #include <vtkActor.h>
 #include <vtkActor2D.h>
 #include <vtkCamera.h>
 #include <vtkCommand.h>
+#include <vtkDataSetMapper.h>
 #include <vtkDataSetSurfaceFilter.h>
 #include <vtkExtractSelectedIds.h>
 #include <vtkFloatArray.h>
@@ -66,6 +67,8 @@
 #include <vtkVertexGlyphFilter.h>
 #include <vtkXMLPolyDataReader.h>
 #include <vtkXMLPolyDataWriter.h>
+#include <vtkXMLStructuredGridReader.h>
+#include <vtkXMLStructuredGridWriter.h>
 
 // Boost
 #include <boost/make_shared.hpp>
@@ -120,11 +123,11 @@ void ComputeAndCompareDescriptorsWidget::SharedConstructor()
   this->PointPicker = vtkSmartPointer<vtkPointPicker>::New();
   this->PointPicker->PickFromListOn();
 
-  // Point cloud
-  this->PointCloudVTK = vtkSmartPointer<vtkPolyData>::New();
+  // Point data
+  this->PolyData = vtkSmartPointer<vtkPolyData>::New();
+  this->StructuredGrid = vtkSmartPointer<vtkStructuredGrid>::New();
 
-  this->PointCloudMapper = vtkSmartPointer<vtkPolyDataMapper>::New();
-  this->PointCloudMapper->SetInputConnection(this->PointCloudVTK->GetProducerPort());
+  this->PointCloudMapper = vtkSmartPointer<vtkDataSetMapper>::New();
 
   this->PointCloudActor = vtkSmartPointer<vtkActor>::New();
   this->PointCloudActor->SetMapper(this->PointCloudMapper);
@@ -170,7 +173,16 @@ void ComputeAndCompareDescriptorsWidget::SharedConstructor()
 void ComputeAndCompareDescriptorsWidget::SelectedPointCallback(vtkObject* caller, long unsigned int eventId, void* callData)
 {
   double p[3];
-  this->PointCloudVTK->GetPoint(this->SelectionStyle->SelectedPointId, p);
+  
+  if(this->InputCloudType == VTP)
+    {
+    this->PolyData->GetPoint(this->SelectionStyle->SelectedPointId, p);
+    }
+  else if(this->InputCloudType == VTS)
+    {
+    this->StructuredGrid->GetPoint(this->SelectionStyle->SelectedPointId, p);
+    }
+
   this->MarkerActor->SetPosition(p);
 }
 
@@ -196,8 +208,10 @@ void ComputeAndCompareDescriptorsWidget::RegisterDescriptorComputer(const std::s
   this->cmbDescriptor->addItem(descriptorName.c_str());
 }
 
-void ComputeAndCompareDescriptorsWidget::LoadPointCloud(const std::string& fileName)
+void ComputeAndCompareDescriptorsWidget::LoadPolyData(const std::string& fileName)
 {
+  InputCloudType = VTP;
+
   vtkSmartPointer<vtkXMLPolyDataReader> reader = vtkSmartPointer<vtkXMLPolyDataReader>::New();
   reader->SetFileName(fileName.c_str());
   reader->Update();
@@ -247,9 +261,7 @@ void ComputeAndCompareDescriptorsWidget::LoadPointCloud(const std::string& fileN
     vtkSmartPointer<vtkDataSetSurfaceFilter>::New();
   surfaceFilter->SetInputConnection(extractSelectedIds->GetOutputPort());
   surfaceFilter->Update(); 
-  this->PointCloudVTK->DeepCopy(surfaceFilter->GetOutput());
-
-  this->PointCloudMapper->SetInputConnection(this->PointCloudVTK->GetProducerPort());
+  this->PolyData->DeepCopy(surfaceFilter->GetOutput());
 
   this->PointCloudActor->GetProperty()->SetRepresentationToPoints();
 
@@ -258,7 +270,7 @@ void ComputeAndCompareDescriptorsWidget::LoadPointCloud(const std::string& fileN
   this->PointPicker->AddPickList(this->PointCloudActor);
 
   this->qvtkWidget->GetRenderWindow()->GetInteractor()->SetPicker(this->PointPicker);
-  this->SelectionStyle->Points = this->PointCloudVTK;
+  this->SelectionStyle->SetPoints(this->PolyData->GetPoints());
   this->SelectionStyle->SetCurrentRenderer(this->Renderer);
   this->qvtkWidget->GetRenderWindow()->GetInteractor()->SetInteractorStyle(this->SelectionStyle);
 
@@ -266,29 +278,100 @@ void ComputeAndCompareDescriptorsWidget::LoadPointCloud(const std::string& fileN
 
   std::cout << "Converting to PCL..." << std::endl;
 
-  VTKtoPCL(this->PointCloudVTK.GetPointer(), this->PCLCloud.get());
+  VTKtoPCL(this->PolyData.GetPointer(), this->PCLCloud.get());
 
   std::cout << "Computing normals..." << std::endl;
   this->NormalComputer(this->PCLCloud, this->PCLCloud);
 
-  std::cout << "LoadPointCloud(): Creating index map..." << std::endl;
+  std::cout << "LoadPolyData(): Creating index map..." << std::endl;
   CreateIndexMap();
 
-  std::cout << "Finished LoadPointCloud()..." << std::endl;
+  // Display the polydata
+  this->PointCloudMapper->SetInputConnection(this->PolyData->GetProducerPort());
+  this->SelectionStyle->GetCurrentRenderer()->ResetCamera();
+  this->qvtkWidget->GetRenderWindow()->Render();
+  std::cout << "Finished LoadPolyData()..." << std::endl;
+}
+
+void ComputeAndCompareDescriptorsWidget::LoadStructuredGrid(const std::string& fileName)
+{
+  InputCloudType = VTS;
+
+  vtkSmartPointer<vtkXMLStructuredGridReader> reader = vtkSmartPointer<vtkXMLStructuredGridReader>::New();
+  reader->SetFileName(fileName.c_str());
+  reader->Update();
+
+  this->StructuredGrid->DeepCopy(reader->GetOutput());
+
+  this->PointCloudMapper->SetInputConnection(this->PolyData->GetProducerPort());
+
+  this->PointCloudActor->GetProperty()->SetRepresentationToPoints();
+
+  this->Renderer->ResetCamera();
+
+  this->PointPicker->AddPickList(this->PointCloudActor);
+
+  this->qvtkWidget->GetRenderWindow()->GetInteractor()->SetPicker(this->PointPicker);
+  this->SelectionStyle->SetPoints(this->StructuredGrid->GetPoints());
+  this->SelectionStyle->SetCurrentRenderer(this->Renderer);
+  this->qvtkWidget->GetRenderWindow()->GetInteractor()->SetInteractorStyle(this->SelectionStyle);
+
+  this->Renderer->ResetCamera();
+
+  std::cout << "Converting to PCL..." << std::endl;
+
+  VTKtoPCL(this->StructuredGrid.GetPointer(), this->PCLCloud.get());
+
+  std::cout << "Computing normals..." << std::endl;
+  this->NormalComputer(this->PCLCloud, this->PCLCloud);
+
+  // Display the polydata
+  this->PointCloudMapper->SetInputConnection(this->StructuredGrid->GetProducerPort());
+  this->SelectionStyle->GetCurrentRenderer()->ResetCamera();
+  this->qvtkWidget->GetRenderWindow()->Render();
+  std::cout << "Finished LoadStructuredGrid()..." << std::endl;
 }
 
 void ComputeAndCompareDescriptorsWidget::on_btnCompare_clicked()
 {
-  // Start the computation.
-  QFuture<void> future = QtConcurrent::run(this, &ComputeAndCompareDescriptorsWidget::ComputeDifferences);
-  this->FutureWatcher.setFuture(future);
-  this->ProgressDialog->setMinimum(0);
-  this->ProgressDialog->setMaximum(0);
-  this->ProgressDialog->setLabelText("Computing descriptors and differences...");
-  this->ProgressDialog->setWindowModality(Qt::WindowModal);
-  this->ProgressDialog->exec();
- 
-  // ComputeDifferences();
+  // If features already exist
+  bool featuresAlreadyExist = false;
+  if(this->InputCloudType == VTP)
+    {
+    if(this->PolyData->GetPointData()->HasArray(cmbDescriptor->currentText().toStdString().c_str()))
+      {
+      featuresAlreadyExist = true;
+      }
+    }
+  else if(this->InputCloudType == VTS)
+    {
+    if(this->StructuredGrid->GetPointData()->HasArray(cmbDescriptor->currentText().toStdString().c_str()))
+      {
+      featuresAlreadyExist = true;
+      }
+    }
+
+  if(featuresAlreadyExist)
+    {
+    QMessageBox msgBox;
+    msgBox.addButton(QMessageBox::Yes);
+    msgBox.addButton(QMessageBox::No);
+    msgBox.setText("This feature already exists. Do you want to recompute the features?");
+
+    int selection = msgBox.exec();
+    if(selection == QMessageBox::Yes)
+      {
+      QFuture<void> future = QtConcurrent::run(this, &ComputeAndCompareDescriptorsWidget::ComputeFeatures);
+      this->FutureWatcher.setFuture(future);
+      this->ProgressDialog->setMinimum(0);
+      this->ProgressDialog->setMaximum(0);
+      this->ProgressDialog->setLabelText("Computing features...");
+      this->ProgressDialog->setWindowModality(Qt::WindowModal);
+      this->ProgressDialog->exec();
+      }
+    }
+
+  ComputeDifferences();
 }
 
 void ComputeAndCompareDescriptorsWidget::CreateIndexMap()
@@ -296,8 +379,8 @@ void ComputeAndCompareDescriptorsWidget::CreateIndexMap()
   std::cout << "Creating index map..." << std::endl;
 
   // Add a map from all of the pixels to their corresponding point id. 
-  vtkIntArray* indexArray = vtkIntArray::SafeDownCast(this->PointCloudVTK->GetPointData()->GetArray("OriginalPixel"));
-  for(vtkIdType pointId = 0; pointId < this->PointCloudVTK->GetNumberOfPoints(); ++pointId)
+  vtkIntArray* indexArray = vtkIntArray::SafeDownCast(this->PolyData->GetPointData()->GetArray("OriginalPixel"));
+  for(vtkIdType pointId = 0; pointId < this->PolyData->GetNumberOfPoints(); ++pointId)
     {
     //int* pixelIndexArray;
     int pixelIndexArray[2];
@@ -319,7 +402,7 @@ void ComputeAndCompareDescriptorsWidget::ComputeFeatures()
     ComputeClusteredViewpointFeatureHistograms cvfhComputer;
     PointNormalCloudType::Ptr cloud ( new PointNormalCloudType);
     copyPointCloud(*this->PCLCloud, *cloud);
-    cvfhComputer(cloud, this->Mask, this->PointCloudVTK);
+    cvfhComputer(cloud, this->Mask, this->PolyData);
     }
   else if(cmbDescriptor->currentText().toStdString() == "VFH")
     {
@@ -327,7 +410,8 @@ void ComputeAndCompareDescriptorsWidget::ComputeFeatures()
     ComputeClusteredViewpointFeatureHistograms cvfhComputer;
     PointNormalCloudType::Ptr cloud ( new PointNormalCloudType);
     copyPointCloud(*this->PCLCloud, *cloud);
-    vfhComputer(cloud, this->Mask.GetPointer(), this->PointCloudVTK.GetPointer());
+    //vfhComputer(cloud, this->Mask.GetPointer(), this->PolyData.GetPointer());
+    vfhComputer(cloud, this->Mask.GetPointer(), this->StructuredGrid.GetPointer());
     }
   else if(cmbDescriptor->currentText().toStdString() == "PFH")
     {
@@ -335,7 +419,7 @@ void ComputeAndCompareDescriptorsWidget::ComputeFeatures()
     ComputeClusteredViewpointFeatureHistograms cvfhComputer;
     PointNormalCloudType::Ptr cloud ( new PointNormalCloudType);
     copyPointCloud(*this->PCLCloud, *cloud);
-    pfhComputer(cloud, this->PointCloudVTK);
+    pfhComputer(cloud, this->PolyData);
     }
   else if(cmbDescriptor->currentText().toStdString() == "FPFH")
     {
@@ -343,12 +427,12 @@ void ComputeAndCompareDescriptorsWidget::ComputeFeatures()
     ComputeClusteredViewpointFeatureHistograms cvfhComputer;
     PointNormalCloudType::Ptr cloud ( new PointNormalCloudType);
     copyPointCloud(*this->PCLCloud, *cloud);
-    fpfhComputer(cloud, this->PointCloudVTK);
+    fpfhComputer(cloud, this->PolyData);
     }
   else if(cmbDescriptor->currentText().toStdString() == "PFHRGB")
     {
     ComputePFHRGB pfhrgbComputer;
-    pfhrgbComputer(this->PCLCloud, this->Mask, this->PointCloudVTK);
+    pfhrgbComputer(this->PCLCloud, this->Mask, this->PolyData);
     }
   else
     {
@@ -360,9 +444,16 @@ void ComputeAndCompareDescriptorsWidget::ComputeDifferences()
 {
   std::cout << "ComputeDifferences()..." << std::endl;
 
-  ComputeFeatures();
+  vtkIdType numberOfPoints = 0;
+  if(this->InputCloudType == VTP)
+  {
+    numberOfPoints = this->PolyData->GetNumberOfPoints();
+  }
+  else if(this->InputCloudType == VTS)
+  {
+    numberOfPoints = this->StructuredGrid->GetNumberOfPoints();
+  }
 
-  vtkIdType numberOfPoints = this->PointCloudVTK->GetNumberOfPoints();
   //std::cout << "There are " << numberOfPoints << " points." << std::endl;
 
   vtkIdType selectedPointId = this->SelectionStyle->SelectedPointId;
@@ -370,13 +461,21 @@ void ComputeAndCompareDescriptorsWidget::ComputeDifferences()
 
   if(selectedPointId < 0 || selectedPointId >= numberOfPoints)
     {
-    std::cerr << "You must select a point to compare!" << std::endl;
+    std::cerr << "You must select a point to compare! (selectedPointId is " << selectedPointId << " and numberOfPoints is " << numberOfPoints << ")" << std::endl;
     return;
     }
 
   std::string nameOfArrayToCompare = cmbDescriptor->currentText().toStdString();
 
-  vtkDataArray* descriptorArray = this->PointCloudVTK->GetPointData()->GetArray(nameOfArrayToCompare.c_str());
+  vtkDataArray* descriptorArray;
+  if(this->InputCloudType == VTP)
+    {
+    descriptorArray = this->PolyData->GetPointData()->GetArray(nameOfArrayToCompare.c_str());
+    }
+  else if(this->InputCloudType == VTS)
+    {
+    descriptorArray = this->StructuredGrid->GetPointData()->GetArray(nameOfArrayToCompare.c_str());
+    }
 
   if(!descriptorArray)
     {
@@ -394,7 +493,7 @@ void ComputeAndCompareDescriptorsWidget::ComputeDifferences()
   differences->SetNumberOfComponents(1);
   differences->SetNumberOfTuples(numberOfPoints);
 
-  for(vtkIdType pointId = 0; pointId < this->PointCloudVTK->GetNumberOfPoints(); ++pointId)
+  for(vtkIdType pointId = 0; pointId < this->PolyData->GetNumberOfPoints(); ++pointId)
     {
     double* currentDescriptor = descriptorArray->GetTuple(pointId);
     //std::cout << "descriptor " << pointId << " : " << currentDescriptor[0] << " " << currentDescriptor[1] << std::endl;
@@ -402,8 +501,16 @@ void ComputeAndCompareDescriptorsWidget::ComputeDifferences()
     differences->SetValue(pointId, difference);
     }
 
-  this->PointCloudVTK->GetPointData()->AddArray(differences);
-  this->PointCloudVTK->GetPointData()->SetActiveScalars(descriptorDifferenceName.c_str());
+  if(this->InputCloudType == VTP)
+    {
+    this->PolyData->GetPointData()->AddArray(differences);
+    this->PolyData->GetPointData()->SetActiveScalars(descriptorDifferenceName.c_str());
+    }
+  else if(this->InputCloudType == VTS)
+    {
+    this->StructuredGrid->GetPointData()->AddArray(differences);
+    this->StructuredGrid->GetPointData()->SetActiveScalars(descriptorDifferenceName.c_str());
+    }
 
   float range[2];
   differences->GetValueRange(range);
@@ -444,14 +551,27 @@ void ComputeAndCompareDescriptorsWidget::SavePointCloud(const std::string& fileN
 {
   vtkSmartPointer<vtkXMLPolyDataWriter> writer = vtkSmartPointer<vtkXMLPolyDataWriter>::New();
   writer->SetFileName(fileName.c_str());
-  writer->SetInputConnection(this->PointCloudVTK->GetProducerPort());
+  writer->SetInputConnection(this->PolyData->GetProducerPort());
   writer->Write();
+}
+
+void ComputeAndCompareDescriptorsWidget::LoadData(const std::string& fileName)
+{
+  QFileInfo fileInfo(fileName.c_str());
+  if(fileInfo.suffix().toStdString() == "vtp")
+  {
+    LoadPolyData(fileName);
+  }
+  else if(fileInfo.suffix().toStdString() == "vts")
+  {
+    LoadStructuredGrid(fileName);
+  }
 }
 
 void ComputeAndCompareDescriptorsWidget::on_actionOpenPointCloud_activated()
 {
   // Get a filename to open
-  QString fileName = QFileDialog::getOpenFileName(this, "Open File", ".", "Point Clouds (*.vtp)");
+  QString fileName = QFileDialog::getOpenFileName(this, "Open File", ".", "Point Clouds (*.vtp;;*.vts)");
 
   std::cout << "Got filename: " << fileName.toStdString() << std::endl;
   if(fileName.toStdString().empty())
@@ -460,5 +580,5 @@ void ComputeAndCompareDescriptorsWidget::on_actionOpenPointCloud_activated()
     return;
     }
 
-  LoadPointCloud(fileName.toStdString());
+  LoadData(fileName.toStdString());
 }

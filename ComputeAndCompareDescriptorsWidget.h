@@ -49,8 +49,9 @@ class vtkImageData;
 class vtkImageActor;
 class vtkPointPicker;
 class vtkPolyData;
-class vtkPolyDataMapper;
+class vtkDataSetMapper;
 class vtkRenderer;
+class vtkStructuredGrid;
 
 /* 
  * This class will compute a descriptor at each point (if it isn't already computed, indicated by the existance of
@@ -73,7 +74,9 @@ public:
 
   ~ComputeAndCompareDescriptorsWidget() {};
 
-  void LoadPointCloud(const std::string& fileName);
+  void LoadData(const std::string& fileName);
+  void LoadPolyData(const std::string& fileName);
+  void LoadStructuredGrid(const std::string& fileName);
   void LoadMask(const std::string& fileName);
 
 public slots:
@@ -100,7 +103,8 @@ private:
 
   void SavePointCloud(const std::string& fileName);
 
-  vtkSmartPointer<vtkPolyData> PointCloudVTK;
+  vtkSmartPointer<vtkPolyData> PolyData;
+  vtkSmartPointer<vtkStructuredGrid> StructuredGrid;
 
   void SharedConstructor();
   QFutureWatcher<void> FutureWatcher;
@@ -115,7 +119,7 @@ private:
   void Refresh();
 
   vtkSmartPointer<vtkActor> PointCloudActor;
-  vtkSmartPointer<vtkPolyDataMapper> PointCloudMapper;
+  vtkSmartPointer<vtkDataSetMapper> PointCloudMapper;
 
   vtkSmartPointer<vtkActor> MarkerActor;
   vtkSmartPointer<vtkPolyDataMapper> MarkerMapper;
@@ -130,6 +134,9 @@ private:
   MaskImageType::Pointer Mask;
 
   ComputeNormals<FullCloudType::PointType, FullCloudType::PointType> NormalComputer;
+  
+  enum InputCloudTypeEnum { VTP, VTS};
+  InputCloudTypeEnum InputCloudType;
 };
 
 #include "ComputeAndCompareDescriptorsWidget.hpp"

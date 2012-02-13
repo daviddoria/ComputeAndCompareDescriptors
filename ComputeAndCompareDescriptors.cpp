@@ -32,13 +32,13 @@ int main( int argc, char** argv )
   std::cout << "argc: " << argc << std::endl;
   if(argc == 4)
     {
-    std::string VTPFileName = argv[1];
+    std::string VTKFileName = argv[1]; // Should be either .vtp or .vts
     std::string maskFileName = argv[2];
     std::string outputFileName = argv[3];
 
     // Must load mask before point cloud, as the mask is used to mask the point cloud
     computeAndCompareDescriptorsWidget.LoadMask(maskFileName);
-    computeAndCompareDescriptorsWidget.LoadPointCloud(VTPFileName);
+    computeAndCompareDescriptorsWidget.LoadData(VTKFileName);
 
     }
   computeAndCompareDescriptorsWidget.show();

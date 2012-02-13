@@ -40,12 +40,15 @@ public:
 
   double* GetMarkerLocation();
 
-  vtkPolyData* Points;
+  void SetPoints(vtkPoints* const points);
 
   vtkIdType SelectedPointId;
 
   int SelectedPointEvent;
  
+private:
+  vtkSmartPointer<vtkPolyData> PolyData;
+  vtkSmartPointer<vtkPoints> Points;
 };
 
 #endif
