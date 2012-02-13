@@ -265,8 +265,8 @@ void ComputeAndCompareDescriptorsWidget::LoadPointCloud(const std::string& fileN
   this->Renderer->ResetCamera();
 
   std::cout << "Converting to PCL..." << std::endl;
-  //VTKtoPCL(this->PointCloud.GetPointer(), this->PCLCloud.get());
-  VTKtoPCL(this->PointCloudVTK, this->PCLCloud.get());
+
+  VTKtoPCL(this->PointCloudVTK.GetPointer(), this->PCLCloud.get());
 
   std::cout << "Computing normals..." << std::endl;
   this->NormalComputer(this->PCLCloud, this->PCLCloud);

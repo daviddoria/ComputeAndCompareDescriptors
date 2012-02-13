@@ -4,46 +4,35 @@
 // PCL
 #include <pcl/io/pcd_io.h>
 #include <pcl/point_types.h>
-#include <pcl/PolygonMesh.h>
 
 // VTK
 #include <vtkFloatArray.h>
-#include <vtkPolyData.h>
 #include <vtkPointData.h>
 #include <vtkPoints.h>
+#include <vtkPolyData.h>
 #include <vtkSmartPointer.h>
+#include <vtkStructuredGrid.h>
 #include <vtkUnsignedCharArray.h>
-#include <vtkXMLPolyDataReader.h>
 
-//Some shorthand notation
-typedef pcl::PointCloud<pcl::PointXYZRGB>::Ptr          CloudPointColorPtr;
-typedef pcl::PointCloud<pcl::PointXYZRGBNormal>::Ptr    CloudPointColorNormalPtr;
-typedef pcl::PointCloud<pcl::PointNormal>::Ptr          CloudPointNormalPtr;
-typedef vtkSmartPointer<vtkPoints>                      VTKPointsPtr;
-typedef vtkSmartPointer<vtkPolyData>                    VTKPolyDataPtr;
-
-//int PolyDataToPolygonMesh(vtkPolyData* polyData, pcl::PolygonMesh &polygonMesh);
-
-//Template function declarations for inserting points of arbitrary dimension
-template <typename PointT> 
-//void VTKtoPCL(vtkPolyData* const polydata, typename pcl::PointCloud<PointT>::Ptr cloud)
-void VTKtoPCL(vtkPolyData* const polydata, typename pcl::PointCloud<PointT>* const cloud)
+template <typename VTKObjectT, typename PointT> 
+void VTKtoPCL(VTKObjectT* const VTKObject, typename pcl::PointCloud<PointT>* const cloud)
 {
   // This generic template will convert any VTK PolyData
   // to a coordinate-only PointXYZ PCL format.
 
-  cloud->width = polydata->GetNumberOfPoints();
+  cloud->width = VTKObject->GetNumberOfPoints();
   cloud->height = 1; // This indicates that the point cloud is unorganized
   cloud->is_dense = false;
   cloud->points.resize(cloud->width);
 
-  vtkUnsignedCharArray* colors = vtkUnsignedCharArray::SafeDownCast(polydata->GetPointData()->GetArray("Colors"));
+  vtkUnsignedCharArray* colors = vtkUnsignedCharArray::SafeDownCast(VTKObject->GetPointData()->GetArray("Colors"));
+  vtkFloatArray* normals = vtkFloatArray::SafeDownCast(VTKObject->GetPointData()->GetNormals());
 
   for (size_t i = 0; i < cloud->points.size (); ++i)
     {
     // Coordinate
     double p[3];
-    polydata->GetPoint(i,p);
+    VTKObject->GetPoint(i,p);
     cloud->points[i].x = p[0];
     cloud->points[i].y = p[1];
     cloud->points[i].z = p[2];
@@ -57,6 +46,16 @@ void VTKtoPCL(vtkPolyData* const polydata, typename pcl::PointCloud<PointT>* con
       cloud->points[i].g = color[1];
       cloud->points[i].b = color[2];
       }
+      
+    if(normals)
+    {
+      // Setup normals
+      float normal[3];
+      normals->GetTupleValue(i,normal);
+      cloud->points[i].normal_x = normal[0];
+      cloud->points[i].normal_y = normal[1];
+      cloud->points[i].normal_z = normal[2];
+    }
     }
 }
 
