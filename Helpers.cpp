@@ -28,6 +28,8 @@
 #include <vtkProp.h>
 #include <vtkRenderer.h>
 #include <vtkSmartPointer.h>
+#include <vtkStructuredData.h>
+#include <vtkStructuredGrid.h>
 
 namespace Helpers
 {
@@ -40,6 +42,32 @@ void OutputArrayNames(vtkPolyData* const polyData)
     {
     std::cout << polyData->GetPointData()->GetArrayName(i) << std::endl;
     }
+}
+
+CoordinateMapType ComputeMap(vtkStructuredGrid* const structuredGrid)
+{
+  CoordinateMapType coordinateMap;
+
+  int dimensions[3];
+  structuredGrid->GetDimensions(dimensions);
+
+  for(vtkIdType i = 0; i < dimensions[0]; ++i)
+    {
+    for(vtkIdType j = 0; j < dimensions[1]; ++j)
+      {
+      int queryPoint[3] = {i, j, 0};
+      vtkIdType pointId = vtkStructuredData::ComputePointId(dimensions, queryPoint);
+      
+      if(structuredGrid->IsPointVisible(pointId))
+        {
+        itk::Index<2> pixelIndex;
+        pixelIndex[0] = queryPoint[0];
+        pixelIndex[1] = queryPoint[1];
+        coordinateMap[pixelIndex] = pointId;
+        }
+      }
+    }
+  return coordinateMap;
 }
 
 CoordinateMapType ComputeMap(vtkPolyData* const polyData)

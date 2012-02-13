@@ -22,6 +22,7 @@
 // VTK
 class vtkPolyData;
 class vtkPoints;
+class vtkStructuredGrid;
 
 // ITK
 #include "itkImageRegion.h"
@@ -32,6 +33,7 @@ namespace Helpers
 
 typedef std::map<itk::Index<2>, unsigned int, itk::Index<2>::LexicographicCompare> CoordinateMapType;
 CoordinateMapType ComputeMap(vtkPolyData* const polyData);
+CoordinateMapType ComputeMap(vtkStructuredGrid* const structuredGrid);
 
 void OutputArrayNames(vtkPolyData* const polyData);
 

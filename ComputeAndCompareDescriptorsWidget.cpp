@@ -327,7 +327,7 @@ void ComputeAndCompareDescriptorsWidget::ComputeFeatures()
     ComputeClusteredViewpointFeatureHistograms cvfhComputer;
     PointNormalCloudType::Ptr cloud ( new PointNormalCloudType);
     copyPointCloud(*this->PCLCloud, *cloud);
-    vfhComputer(cloud, this->Mask, this->PointCloudVTK);
+    vfhComputer(cloud, this->Mask.GetPointer(), this->PointCloudVTK.GetPointer());
     }
   else if(cmbDescriptor->currentText().toStdString() == "PFH")
     {

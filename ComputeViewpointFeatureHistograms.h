@@ -26,10 +26,11 @@ public:
   typedef itk::Image<bool, 2> MaskImageType;
 
   // Compute descriptors (normals are already computed and input)
-  void operator()(InputCloudType::Ptr input, MaskImageType* mask, vtkPolyData* const polyData);
+  template <typename TVTKObject>
+  void operator()(InputCloudType::Ptr input, MaskImageType* mask, TVTKObject* const vtkobject);
 
-  template <typename TObject>
-  void AddToPointData(OutputCloudType::Ptr outputCloud, TObject* const polyData);
+  template <typename TVTKObject>
+  void AddToPointData(OutputCloudType::Ptr outputCloud, TVTKObject* const polyData);
 
 };
 
