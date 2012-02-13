@@ -26,7 +26,7 @@ public:
   typedef itk::Image<bool, 2> MaskImageType;
 
   // Compute descriptors (normals are already computed and input)
-  void operator()(InputCloudType::Ptr input, MaskImageType* mask, vtkPolyData* const polyData);
+  void operator()(InputCloudType::Ptr input, vtkPolyData* const polyData);
 
 //   void ComputeViewpointFeatureHistogram(InputCloudType::Ptr input, MaskImageType* mask, itk::Index<2>& index,
 //                                         OutputCloudType::Ptr output);

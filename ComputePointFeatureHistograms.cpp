@@ -11,6 +11,9 @@
 #include <pcl/features/impl/pfh.hpp>
 #include <pcl/features/normal_3d.h>
 
+// Boost
+#include <boost/make_shared.hpp>
+
 // VTK
 #include <vtkFloatArray.h>
 #include <vtkPointData.h>
@@ -22,7 +25,7 @@
 const std::string ComputePointFeatureHistograms::DescriptorName = "PFH";
 
 // The input must already have normals.
-void ComputePointFeatureHistograms::operator()(InputCloudType::Ptr input, MaskImageType* mask, vtkPolyData* const polyData)
+void ComputePointFeatureHistograms::operator()(InputCloudType::Ptr input, vtkPolyData* const polyData)
 {
   pcl::search::KdTree<InputCloudType::PointType>::Ptr tree (new pcl::search::KdTree<InputCloudType::PointType>);
 
@@ -33,13 +36,29 @@ void ComputePointFeatureHistograms::operator()(InputCloudType::Ptr input, MaskIm
   // Provide the point cloud with normals
   pfhEstimation.setInputNormals(input);
 
-  // pfhEstimation.setInputWithNormals(cloud, cloudWithNormals); PFHEstimation does not have this function
   // Use the same KdTree from the normal estimation
   pfhEstimation.setSearchMethod (tree);
 
   OutputCloudType::Ptr pfhFeatures(new OutputCloudType);
 
-  pfhEstimation.setRadiusSearch (0.1);
+//   float radius = .1f;
+//   pfhEstimation.setRadiusSearch (radius);
+  
+  // This is here for testing only - it only computes the descriptor on a specified number of points - it is used to do some benchmarking.
+//   {
+//   std::vector<int> indices;
+//   for(unsigned int i = 0; i < 1000; ++i)
+//   {
+//     indices.push_back(i);
+//   }
+//   pfhEstimation.setIndices(boost::make_shared<std::vector<int> >(indices));
+//   }
+  
+  //unsigned int numberOfNeighbors = 100;
+  // unsigned int numberOfNeighbors = 5; // takes only a few seconds
+  //unsigned int numberOfNeighbors = 10; // takes about 2 minutes
+  unsigned int numberOfNeighbors = 20;
+  pfhEstimation.setKSearch(numberOfNeighbors);
 
   // Actually compute the features
   std::cout << "Computing features..." << std::endl;
@@ -47,6 +66,7 @@ void ComputePointFeatureHistograms::operator()(InputCloudType::Ptr input, MaskIm
 
   std::cout << "output points (features computed on): " << pfhFeatures->points.size () << std::endl;
   
+  AddToPolyData(pfhFeatures, polyData);
 }
 
 void ComputePointFeatureHistograms::AddToPolyData(OutputCloudType::Ptr outputCloud, vtkPolyData* const polyData)

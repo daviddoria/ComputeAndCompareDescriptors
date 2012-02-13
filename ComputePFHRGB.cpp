@@ -92,6 +92,7 @@ void ComputePFHRGB::operator()(InputCloudType::Ptr input, MaskImageType* mask, v
 
     if(pointIds.size() < 2)
       {
+      // std::cout << "Cannot compute the descriptor with less than 2 points." << std::endl;
       unsigned int currentPointId = coordinateMap[imageIterator.GetIndex()];
 
       pfhrgbFeatures->points[currentPointId] = emptyPoint;

@@ -14,7 +14,12 @@ void ComputeNormals<TInput, TOutput>::operator()(typename pcl::PointCloud<TInput
   this->Tree = typename TreeType::Ptr(new TreeType);
   normalEstimation.setSearchMethod (this->Tree);
 
-  normalEstimation.setRadiusSearch (0.1);
+//   float radius = 0.1f;
+//   normalEstimation.setRadiusSearch (radius);
+  
+  //unsigned int numberOfNeighbors = 100;
+  unsigned int numberOfNeighbors = 10;
+  normalEstimation.setKSearch(numberOfNeighbors);
 
   normalEstimation.compute (*output);
 }

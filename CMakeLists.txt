@@ -27,7 +27,6 @@ ADD_EXECUTABLE(ComputeAndCompareDescriptors
 ComputeAndCompareDescriptors.cpp
 ComputeAndCompareDescriptorsWidget.cpp
 
-ComputeNormals.cpp
 
 ComputeClusteredViewpointFeatureHistograms.cpp
 ComputeViewpointFeatureHistograms.cpp

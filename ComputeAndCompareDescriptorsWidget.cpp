@@ -271,8 +271,10 @@ void ComputeAndCompareDescriptorsWidget::LoadPointCloud(const std::string& fileN
   std::cout << "Computing normals..." << std::endl;
   this->NormalComputer(this->PCLCloud, this->PCLCloud);
 
+  std::cout << "LoadPointCloud(): Creating index map..." << std::endl;
   CreateIndexMap();
 
+  std::cout << "Finished LoadPointCloud()..." << std::endl;
 }
 
 void ComputeAndCompareDescriptorsWidget::on_btnCompare_clicked()
@@ -333,7 +335,7 @@ void ComputeAndCompareDescriptorsWidget::ComputeFeatures()
     ComputeClusteredViewpointFeatureHistograms cvfhComputer;
     PointNormalCloudType::Ptr cloud ( new PointNormalCloudType);
     copyPointCloud(*this->PCLCloud, *cloud);
-    pfhComputer(cloud, this->Mask, this->PointCloudVTK);
+    pfhComputer(cloud, this->PointCloudVTK);
     }
   else if(cmbDescriptor->currentText().toStdString() == "FPFH")
     {
