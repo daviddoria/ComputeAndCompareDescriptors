@@ -3,6 +3,7 @@
 
 // VTK
 class vtkPolyData;
+class vtkStructuredGrid;
 
 // PCL
 #include <pcl/point_cloud.h>
@@ -27,11 +28,11 @@ public:
   // Compute descriptors (normals are already computed and input)
   void operator()(InputCloudType::Ptr input, MaskImageType* mask, vtkPolyData* const polyData);
 
-//   void ComputeViewpointFeatureHistogram(InputCloudType::Ptr input, MaskImageType* mask, itk::Index<2>& index,
-//                                         OutputCloudType::Ptr output);
-
-  void AddToPolyData(OutputCloudType::Ptr outputCloud, vtkPolyData* const polyData);
+  template <typename TObject>
+  void AddToPointData(OutputCloudType::Ptr outputCloud, TObject* const polyData);
 
 };
+
+#include "ComputeViewpointFeatureHistograms.hpp"
 
 #endif

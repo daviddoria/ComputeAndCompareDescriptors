@@ -12,6 +12,7 @@
 #include <vtkPointData.h>
 #include <vtkPolyData.h>
 #include <vtkSmartPointer.h>
+#include <vtkStructuredGrid.h>
 
 // PCL
 #include <pcl/features/vfh.h>
@@ -21,13 +22,6 @@
 #include "Helpers.h"
 
 const std::string ComputeViewpointFeatureHistograms::DescriptorName = "VFH";
-
-// void ComputeViewpointFeatureHistogram::operator()(InputCloudType::Ptr input, MaskImageType* mask, itk::Index<2>& index,
-//                                                   OutputCloudType::Ptr output)
-// {
-//   // The 'output' of this function only has 1 point (as per the standard operation of the VFH filter).
-//   // The inner loop of ComputeViewpointFeatureHistograms() should be broken out here
-// }
 
 void ComputeViewpointFeatureHistograms::operator()(InputCloudType::Ptr input, MaskImageType* mask, vtkPolyData* const polyData)
 {
@@ -89,6 +83,12 @@ void ComputeViewpointFeatureHistograms::operator()(InputCloudType::Ptr input, Ma
       if(!patchIterator.Get())
         {
         pointIds.push_back(coordinateMap[patchIterator.GetIndex()]);
+//         int dimensions[3];
+//         structuredGrid->GetDimensions(dimensions);
+// 
+//         int queryPoint[3] = {4, 0, 0};
+//         vtkIdType pointId = vtkStructuredData::ComputePointId(dimensions, queryPoint);
+
         }
       ++patchIterator;
       }
@@ -132,28 +132,5 @@ void ComputeViewpointFeatureHistograms::operator()(InputCloudType::Ptr input, Ma
     ++imageIterator;
     } // end while imageIterator
 
-  AddToPolyData(output, polyData);
-}
-
-void ComputeViewpointFeatureHistograms::AddToPolyData(OutputCloudType::Ptr outputCloud, vtkPolyData* const polyData)
-{
-  vtkSmartPointer<vtkFloatArray> descriptors = vtkSmartPointer<vtkFloatArray>::New();
-  descriptors->SetName(this->DescriptorName.c_str());
-  descriptors->SetNumberOfComponents(308);
-  descriptors->SetNumberOfTuples(polyData->GetNumberOfPoints());
-
-//   // Zero all of the descriptors, we may not have one to assign for every point.
-//   std::vector<float> zeroVector(308, 0);
-//
-//   for(size_t pointId = 0; pointId < outputCloud->points.size(); ++pointId)
-//     {
-//     descriptors->SetTupleValue(pointId, zeroVector.data());
-//     }
-
-  for(vtkIdType pointId = 0; pointId < polyData->GetNumberOfPoints(); ++pointId)
-    {
-    descriptors->SetTupleValue(pointId, outputCloud->points[pointId].histogram);
-    }
-
-  polyData->GetPointData()->AddArray(descriptors);
+  AddToPointData(output, polyData);
 }
